@@ -135,17 +135,17 @@ class NicknameInterceptorUI:
     def __init__(self):
         self.window = tk.Tk()
         self.window.title("Assetto Corsa Race Kiosk")
-        self.window.geometry("700x550")
+        self.window.geometry("800x700")
         self.window.resizable(True, True)
-        self.window.minsize(650, 500)
+        self.window.minsize(750, 650)
         
         # Kiosk mode styling
         self.window.configure(bg='#1a1a2e')
         
         # Center window
         self.window.update_idletasks()
-        x = (self.window.winfo_screenwidth() // 2) - (700 // 2)
-        y = (self.window.winfo_screenheight() // 2) - (550 // 2)
+        x = (self.window.winfo_screenwidth() // 2) - (800 // 2)
+        y = (self.window.winfo_screenheight() // 2) - (700 // 2)
         self.window.geometry(f'+{x}+{y}')
         
         # Paths
