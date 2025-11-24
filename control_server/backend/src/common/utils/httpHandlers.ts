@@ -4,6 +4,10 @@ import type { ZodError, ZodSchema } from "zod";
 
 import { ServiceResponse } from "@/common/models/serviceResponse";
 
+export const handleServiceResponse = <T>(serviceResponse: ServiceResponse<T>, res: Response) => {
+	return res.status(serviceResponse.statusCode).send(serviceResponse);
+};
+
 export const validateRequest = (schema: ZodSchema) => async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		await schema.parseAsync({ body: req.body, query: req.query, params: req.params });
@@ -21,6 +25,6 @@ export const validateRequest = (schema: ZodSchema) => async (req: Request, res: 
 
 		const statusCode = StatusCodes.BAD_REQUEST;
 		const serviceResponse = ServiceResponse.failure(errorMessage, null, statusCode);
-		res.status(serviceResponse.statusCode).send(serviceResponse);
+		return handleServiceResponse(serviceResponse, res);
 	}
 };

@@ -15,6 +15,8 @@ const envSchema = z.object({
 	COMMON_RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(1000),
 
 	COMMON_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(1000),
+
+	NUMBER_OF_RIGS: z.coerce.number().int().positive().default(2),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
