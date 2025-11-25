@@ -4,6 +4,7 @@ import { useDashboard } from '../hooks/useQueue'
 import { RigState } from '../lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Footer } from '@/components/Footer'
 
 export const Route = createFileRoute('/dashboard')({
   component: DashboardPage,
@@ -14,10 +15,15 @@ function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="h-screen w-screen bg-gradient-to-br from-gray-900 via-red-900/20 to-black text-white flex items-center justify-center overflow-hidden">
-        <div className="text-center">
-          <Gauge className="w-24 h-24 mx-auto mb-6 animate-spin text-red-500" />
-          <p className="text-3xl font-bold text-white">Loading Dashboard...</p>
+      <div className="h-screen w-screen bg-gradient-to-br from-gray-900 via-red-900/20 to-black text-white flex flex-col overflow-hidden">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Gauge className="w-24 h-24 mx-auto mb-6 animate-spin text-red-500" />
+            <p className="text-3xl font-bold text-white">Loading Dashboard...</p>
+          </div>
+        </div>
+        <div className="relative z-10">
+          <Footer />
         </div>
       </div>
     )
@@ -25,31 +31,41 @@ function DashboardPage() {
 
   if (isError || !data) {
     return (
-      <div className="h-screen w-screen bg-gradient-to-br from-gray-900 via-red-900/20 to-black text-white flex items-center justify-center overflow-hidden">
-        <div className="text-center">
-          <Flag className="w-24 h-24 mx-auto mb-6 text-red-500" />
-          <p className="text-3xl font-bold text-red-400">Connection Lost</p>
-          <p className="text-gray-400 mt-4 text-xl">Reconnecting...</p>
+      <div className="h-screen w-screen bg-gradient-to-br from-gray-900 via-red-900/20 to-black text-white flex flex-col overflow-hidden">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Flag className="w-24 h-24 mx-auto mb-6 text-red-500" />
+            <p className="text-3xl font-bold text-red-400">Connection Lost</p>
+            <p className="text-gray-400 mt-4 text-xl">Reconnecting...</p>
+          </div>
+        </div>
+        <div className="relative z-10">
+          <Footer />
         </div>
       </div>
     )
   }
 
   return (
-    <div className="h-screen w-screen bg-gradient-to-br from-gray-900 via-red-900/20 to-black text-white p-6 overflow-hidden">
+    <div className="h-screen w-screen bg-gradient-to-br from-gray-900 via-red-900/20 to-black text-white flex flex-col overflow-hidden">
       {/* Fully Responsive Grid - Adapts to number of rigs */}
-      <div className={`h-full grid gap-6 ${
-        data.rigs.length === 1 ? 'grid-cols-1' :
-        data.rigs.length === 2 ? 'grid-cols-2' :
-        data.rigs.length === 3 ? 'grid-cols-3' :
-        data.rigs.length === 4 ? 'grid-cols-2 grid-rows-2' :
-        data.rigs.length === 5 ? 'grid-cols-3 grid-rows-2' :
-        data.rigs.length === 6 ? 'grid-cols-3 grid-rows-2' :
-        'grid-cols-4 auto-rows-fr'
-      }`}>
-        {data.rigs.map((rig) => (
-          <RigCard key={rig.id} rig={rig} rigCount={data.rigs.length} />
-        ))}
+      <div className={`flex-1 p-6 overflow-y-auto overflow-x-hidden`}>
+        <div className={`h-full grid gap-6 ${
+          data.rigs.length === 1 ? 'grid-cols-1' :
+          data.rigs.length === 2 ? 'grid-cols-2' :
+          data.rigs.length === 3 ? 'grid-cols-3' :
+          data.rigs.length === 4 ? 'grid-cols-2 grid-rows-2' :
+          data.rigs.length === 5 ? 'grid-cols-3 grid-rows-2' :
+          data.rigs.length === 6 ? 'grid-cols-3 grid-rows-2' :
+          'grid-cols-4 auto-rows-fr'
+        }`}>
+          {data.rigs.map((rig) => (
+            <RigCard key={rig.id} rig={rig} rigCount={data.rigs.length} />
+          ))}
+        </div>
+      </div>
+      <div className="relative z-10">
+        <Footer />
       </div>
     </div>
   )

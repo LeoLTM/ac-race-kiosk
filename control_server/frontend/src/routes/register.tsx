@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Alert } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
+import { Footer } from '@/components/Footer'
 
 export const Route = createFileRoute('/register')({
   component: RegisterPage,
@@ -63,7 +63,7 @@ function RegisterPage() {
   }, [isSuccess])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-red-950/30 to-slate-900 text-white flex items-center justify-center p-4 md:p-8 relative overflow-hidden">
+    <div className="h-screen bg-gradient-to-br from-slate-950 via-red-950/30 to-slate-900 text-white flex flex-col relative overflow-hidden">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-red-600/10 rounded-full blur-3xl animate-pulse" />
@@ -71,21 +71,22 @@ function RegisterPage() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-red-500/5 rounded-full blur-3xl" />
       </div>
       
-      <div className="max-w-4xl w-full relative z-10">
+      <div className="flex-1 flex items-center justify-center p-4 md:p-8 overflow-y-auto overflow-x-hidden">
+        <div className="max-w-4xl w-full relative z-10 my-4">
         {/* Success State */}
         {isSuccess && joinQueueMutation.data && (
           <Card className="bg-slate-900/80 backdrop-blur-xl border-emerald-500 border-2 text-center shadow-2xl shadow-emerald-500/20">
-            <CardContent className="pt-12 pb-12 px-8 md:px-12">
-              <CheckCircle className="w-20 h-20 md:w-24 md:h-24 mx-auto mb-6 text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.5)]" />
-              <h1 className="text-4xl md:text-5xl font-extrabold mb-4 text-emerald-400 leading-tight tracking-tight">
+            <CardContent className="pt-8 pb-8 px-6 md:px-10">
+              <CheckCircle className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.5)]" />
+              <h1 className="text-3xl md:text-4xl font-extrabold mb-3 text-emerald-400 leading-tight tracking-tight">
                 You're In!
               </h1>
-              <p className="text-xl md:text-2xl text-slate-300 mb-8 leading-relaxed">
+              <p className="text-lg md:text-xl text-slate-300 mb-6 leading-relaxed">
                 Welcome to the track, <span className="font-bold text-white bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">{playerName}</span>
               </p>
 
-              <div className="bg-slate-950/60 rounded-2xl p-6 md:p-8 mb-8 border border-slate-700/50 hover:border-slate-600/50 transition-all backdrop-blur-sm">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 text-center">
+              <div className="bg-slate-950/60 rounded-2xl p-4 md:p-6 mb-6 border border-slate-700/50 hover:border-slate-600/50 transition-all backdrop-blur-sm">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 text-center">
                   <div className="py-4 px-4 rounded-xl bg-slate-800/40 group hover:scale-105 hover:bg-slate-800/60 transition-all duration-300">
                     <p className="text-slate-400 text-base md:text-lg mb-2 font-medium uppercase tracking-wider">Your Rig</p>
                     <p className="text-5xl md:text-6xl font-black text-red-500 group-hover:text-red-400 transition-colors drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]">
@@ -109,10 +110,10 @@ function RegisterPage() {
                 </div>
               </div>
 
-              <Alert className="bg-amber-500/10 border-amber-500/40 border mb-8 p-5 md:p-6 rounded-xl backdrop-blur-sm">
-                <AlertCircle className="h-6 w-6 md:h-7 md:w-7 text-amber-400" />
-                <div className="text-amber-200 text-base md:text-lg leading-relaxed">
-                  <strong className="text-lg md:text-xl font-bold block mb-1">Next Steps</strong>
+              <Alert className="bg-amber-500/10 border-amber-500/40 border mb-6 p-4 md:p-5 rounded-xl backdrop-blur-sm">
+                <AlertCircle className="h-5 w-5 md:h-6 md:w-6 text-amber-400" />
+                <div className="text-amber-200 text-sm md:text-base leading-relaxed">
+                  <strong className="text-base md:text-lg font-bold block mb-1">Next Steps</strong>
                   <p>Head to <span className="font-bold text-amber-100">Rig #{joinQueueMutation.data.rigId}</span> and wait for your turn. The rig operator will call you when it's time to race!</p>
                 </div>
               </Alert>
@@ -120,7 +121,7 @@ function RegisterPage() {
               <Button
                 onClick={handleReset}
                 size="lg"
-                className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 active:from-red-700 active:to-red-800 text-white font-bold text-lg md:text-xl py-6 px-10 h-auto min-h-[60px] w-full md:w-auto touch-manipulation hover:scale-105 active:scale-95 transition-all shadow-lg hover:shadow-red-500/50 rounded-xl"
+                className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 active:from-red-700 active:to-red-800 text-white font-bold text-base md:text-lg py-5 px-8 h-auto min-h-[50px] w-full md:w-auto touch-manipulation hover:scale-105 active:scale-95 transition-all shadow-lg hover:shadow-red-500/50 rounded-xl"
               >
                 Register Another Player ({countdown}s)
               </Button>
@@ -207,6 +208,10 @@ function RegisterPage() {
             </CardContent>
           </Card>
         )}
+        </div>
+      </div>
+      <div className="relative z-10">
+        <Footer />
       </div>
     </div>
   )
