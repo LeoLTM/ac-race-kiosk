@@ -27,6 +27,24 @@ export class QueueService {
 
 	// Join queue - assigns player to shortest queue
 	joinQueue(playerName: string): ServiceResponse<JoinQueueResponse | null> {
+		// Check if player name is already in a queue
+		if (queueRepository.isPlayerNameInQueue(playerName)) {
+			return ServiceResponse.failure(
+				"A player with this name is already in queue",
+				null,
+				StatusCodes.CONFLICT,
+			);
+		}
+
+		// Check if player name is currently racing
+		if (queueRepository.isPlayerNameRacing(playerName)) {
+			return ServiceResponse.failure(
+				"A player with this name is currently racing",
+				null,
+				StatusCodes.CONFLICT,
+			);
+		}
+
 		const rig = queueRepository.getShortestQueueRig();
 		if (!rig) {
 			return ServiceResponse.failure("No rigs available", null, StatusCodes.SERVICE_UNAVAILABLE);

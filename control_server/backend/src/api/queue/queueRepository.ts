@@ -55,6 +55,18 @@ export class QueueRepository {
 			return current.queue.length < shortest.queue.length ? current : shortest;
 		});
 	}
+
+	// Check if a player name is already in any queue
+	isPlayerNameInQueue(playerName: string): boolean {
+		const rigs = this.getAllRigs();
+		return rigs.some((rig) => rig.queue.some((player) => player.name === playerName));
+	}
+
+	// Check if a player name is currently racing
+	isPlayerNameRacing(playerName: string): boolean {
+		const rigs = this.getAllRigs();
+		return rigs.some((rig) => rig.currentPlayer?.name === playerName);
+	}
 }
 
 export const queueRepository = new QueueRepository();

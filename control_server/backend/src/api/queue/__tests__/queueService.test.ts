@@ -39,6 +39,44 @@ describe("QueueService", () => {
 			const totalPlayers = rigs.reduce((sum, rig) => sum + rig.queue.length, 0);
 			expect(totalPlayers).toBe(3);
 		});
+
+		it("should prevent duplicate player names in queue", () => {
+			const firstResult = queueService.joinQueue("John Doe") as ServiceResponse<JoinQueueResponse>;
+			expect(firstResult.success).toBe(true);
+
+			const duplicateResult = queueService.joinQueue(
+				"John Doe",
+			) as ServiceResponse<JoinQueueResponse>;
+			expect(duplicateResult.success).toBe(false);
+			expect(duplicateResult.statusCode).toBe(StatusCodes.CONFLICT);
+			expect(duplicateResult.message).toBe("A player with this name is already in queue");
+		});
+
+		it("should prevent player from joining if currently racing", () => {
+			const joinResult = queueService.joinQueue("John Doe") as ServiceResponse<JoinQueueResponse>;
+			expect(joinResult.success).toBe(true);
+
+			// Start racing session
+			queueService.updateRigState(1, RigState.RACING, joinResult.responseObject.playerId);
+
+			// Try to join again while racing
+			const duplicateResult = queueService.joinQueue(
+				"John Doe",
+			) as ServiceResponse<JoinQueueResponse>;
+			expect(duplicateResult.success).toBe(false);
+			expect(duplicateResult.statusCode).toBe(StatusCodes.CONFLICT);
+			expect(duplicateResult.message).toBe("A player with this name is currently racing");
+		});
+
+		it("should allow player to join after completing their racing session", () => {
+			const joinResult = queueService.joinQueue("John Doe") as ServiceResponse<JoinQueueResponse>;
+			queueService.updateRigState(1, RigState.RACING, joinResult.responseObject.playerId);
+			queueService.completeSession(1);
+
+			// Should be able to join again after session completed
+			const secondJoin = queueService.joinQueue("John Doe") as ServiceResponse<JoinQueueResponse>;
+			expect(secondJoin.success).toBe(true);
+		});
 	});
 
 	describe("getNextPlayer", () => {
