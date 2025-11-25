@@ -12,6 +12,7 @@ import {
 	JoinQueueSchema,
 	NextPlayerResponseSchema,
 	RigSchema,
+	SkipPlayerSchema,
 	UpdateRigStateSchema,
 } from "./queueModel";
 
@@ -68,6 +69,23 @@ queueRouter.post(
 	"/complete/:rigId",
 	validateRequest(CompleteSessionSchema),
 	queueController.completeSession,
+);
+
+// POST /queue/skip/:rigId - Skip current player in queue
+queueRegistry.registerPath({
+	method: "post",
+	path: "/queue/skip/{rigId}",
+	tags: ["Queue"],
+	request: {
+		params: SkipPlayerSchema.shape.params,
+	},
+	responses: createApiResponse(RigSchema, "Player skipped successfully"),
+});
+
+queueRouter.post(
+	"/skip/:rigId",
+	validateRequest(SkipPlayerSchema),
+	queueController.skipPlayer,
 );
 
 // POST /rigs/:rigId/state - Update rig state

@@ -21,6 +21,12 @@ class QueueController {
 		return handleServiceResponse(serviceResponse, res);
 	};
 
+	public skipPlayer: RequestHandler = async (req: Request, res: Response) => {
+		const rigId = Number(req.params.rigId);
+		const serviceResponse = queueService.skipPlayer(rigId);
+		return handleServiceResponse(serviceResponse, res);
+	};
+
 	public updateRigState: RequestHandler = async (req: Request, res: Response) => {
 		const rigId = Number(req.params.rigId);
 		const { state, playerId } = req.body;

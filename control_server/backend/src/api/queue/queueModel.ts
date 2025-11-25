@@ -49,6 +49,12 @@ export const CompleteSessionSchema = z.object({
 	}),
 });
 
+export const SkipPlayerSchema = z.object({
+	params: z.object({
+		rigId: z.coerce.number().int().positive().openapi({ example: 1 }),
+	}),
+});
+
 export const UpdateRigStateSchema = z.object({
 	params: z.object({
 		rigId: z.coerce.number().int().positive().openapi({ example: 1 }),

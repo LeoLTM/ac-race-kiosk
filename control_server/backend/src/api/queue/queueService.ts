@@ -129,6 +129,30 @@ export class QueueService {
 		return ServiceResponse.success("Session completed", { rig });
 	}
 
+	// Skip player - remove first player from queue and memory
+	skipPlayer(rigId: number): ServiceResponse<{ rig: Rig } | null> {
+		const rig = queueRepository.getRigById(rigId);
+		if (!rig) {
+			return ServiceResponse.failure("Rig not found", null, StatusCodes.NOT_FOUND);
+		}
+
+		if (rig.queue.length === 0) {
+			return ServiceResponse.failure("No players in queue to skip", null, StatusCodes.BAD_REQUEST);
+		}
+
+		// Remove first player from queue
+		const skippedPlayer = rig.queue.shift();
+		if (skippedPlayer) {
+			// Remove player from memory
+			queueRepository.removePlayer(skippedPlayer.id);
+		}
+
+		queueRepository.updateRig(rigId, rig);
+		this.emitQueueUpdate();
+
+		return ServiceResponse.success("Player skipped", { rig });
+	}
+
 	// Get all rigs for dashboard
 	getDashboard(): ServiceResponse<DashboardResponse> {
 		const rigs = queueRepository.getAllRigs();

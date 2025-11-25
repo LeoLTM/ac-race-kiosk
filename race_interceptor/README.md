@@ -1,160 +1,240 @@
-# Assetto Corsa Race Cafe Kiosk
+# Assetto Corsa Race Interceptor Client
 
-A kiosk-style interface for race cafes where multiple players can quickly register their nickname before racing in Assetto Corsa. Perfect for LAN parties, racing cafes, and shared racing setups.
+Race rig client application that integrates with the control server backend to manage queue-based racing sessions. This application runs on each racing rig and handles automatic player name injection into Assetto Corsa's configuration files.
 
 ## Overview
 
-This application automatically intercepts and modifies the Assetto Corsa `race.ini` file when Content Manager starts a race, replacing the default driver name with the player's chosen nickname. Players simply enter their name and start racing - no manual configuration needed.
+This client connects to the control server backend via REST API and Socket.IO to receive real-time queue updates. When a player is ready to race, the operator clicks "Start Race" which activates a "hot phase" watchdog that intercepts Content Manager's `race.ini` file writes and injects the queued player's name.
 
 ## How It Works
 
-1. Player enters their nickname in the kiosk interface
-2. The application monitors `race.ini` for changes using a file system watcher
-3. When Content Manager writes to `race.ini` (at race start), the application immediately intercepts it
-4. The driver name is replaced with the registered nickname
-5. The interface automatically clears and prepares for the next player
-
-The system uses the `watchdog` library to monitor the `~/Documents/Assetto Corsa/cfg/race.ini` file and applies changes with precise timing to ensure Content Manager's settings are overridden.
+1. Client connects to control server via Socket.IO for real-time updates
+2. Displays next player in queue and queue depth on minimal UI
+3. Operator clicks "Start Race" when ready
+4. Client transitions rig to RACING state via REST API
+5. Watchdog activates and monitors `race.ini` for changes
+6. When Content Manager writes to `race.ini`, watchdog intercepts and injects player name
+7. Watchdog stops after successful injection
+8. Operator clicks "End Session" after player finishes racing
+9. Client transitions rig back to FREE state and awaits next player
 
 ## Features
 
-- Clean, racing-themed kiosk interface
-- Automatic nickname interception when races start
-- Recent racers quick-select buttons (saves last 6 nicknames)
-- Race counter to track sessions
-- Auto-start monitoring on launch
-- Persistent nickname history stored in `nickname_config.json`
+- **Real-time queue updates** via Socket.IO (no polling overhead)
+- **Minimal UI** showing connection status, current player, and queue depth
+- **Hot phase watchdog** - only active during race start initialization
+- **Automatic reconnection** with exponential backoff
+- **State machine management** - FREE vs RACING states
+- **REST API integration** for state transitions
+- **Skip player** functionality to remove players from queue
 
 ## Requirements
 
 ### Runtime Requirements
 
 - **Python 3.6 or higher**
-- **Windows OS** (paths are configured for Windows)
-- **Assetto Corsa** installed with Content Manager
-- **watchdog** Python package for file system monitoring
+- **Windows OS** (paths configured for Windows)
+- **Assetto Corsa** with Content Manager
+- **Network access** to control server backend
+- **Dependencies**: watchdog, requests, python-dotenv, python-socketio
 
-### Development Requirements
+### Backend Requirements
 
-All runtime requirements plus:
-- Basic understanding of Python
-- Text editor or IDE (VS Code, PyCharm, etc.)
-- Git (optional, for version control)
+- Control server backend must be running and accessible
+- Rig must be configured in backend (via `NUMBER_OF_RIGS` env variable)
 
 ## Installation
 
-### Quick Setup
+### 1. Install Python Dependencies
 
-1. Clone or download this repository
-2. Run the setup script:
-   ```cmd
-   setup_interceptor.bat
-   ```
-
-This will verify Python installation and install the required `watchdog` package.
-
-### Manual Setup
-
-If you prefer manual installation:
-
-```cmd
-python -m pip install watchdog
+```bash
+pip install -r requirements.txt
 ```
+
+Or manually:
+```bash
+pip install watchdog requests python-dotenv python-socketio[client]
+```
+
+### 2. Configure Environment
+
+Create a `.env` file based on `.env.example`:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your configuration:
+
+```env
+BACKEND_URL=http://localhost
+BACKEND_PORT=8080
+RIG_ID=1
+```
+
+**Important**: `RIG_ID` must match a rig configured in the backend (1, 2, 3, etc.)
 
 ## Usage
 
-### Running the Application
+### Running the Client
 
-**Option 1: Using the batch file (recommended)**
+```bash
+python ac_nickname_interceptor.py
+```
+
+Or on Windows:
 ```cmd
 run_interceptor.bat
 ```
 
-**Option 2: Direct Python execution**
-```cmd
-python ac_nickname_interceptor.py
-```
+### Operator Workflow
 
-### Workflow
+1. **Launch client** - Application connects to backend and shows connection status
+2. **Wait for player** - UI displays "Waiting for player..." until someone joins queue
+3. **Player appears** - UI shows "Next: PlayerName" with queue depth
+4. **Start race**:
+   - Operator clicks "Start Race" button
+   - Client transitions to RACING state
+   - Watchdog activates (hot phase begins)
+5. **Player starts race in Content Manager**:
+   - Watchdog intercepts `race.ini` write
+   - Injects player name automatically
+   - Watchdog stops after successful injection
+6. **Player finishes racing**:
+   - Operator clicks "End Session" button
+   - Client transitions back to FREE state
+   - UI updates with next player (if any in queue)
 
-1. Launch the kiosk application
-2. Player enters their nickname and presses Enter (or clicks a recent name)
-3. Player starts their race in Content Manager
-4. The application automatically updates the driver name
-5. After race starts, the interface clears for the next player
+### Skip Player
+
+If a player doesn't show up or wants to leave the queue:
+- Operator clicks "Skip Player" button
+- Confirms action in dialog
+- Player is removed from queue and memory
+- Next player appears (if any)
 
 ## Configuration
 
-### nickname_config.json
+### Environment Variables (.env)
 
-Automatically created and maintained by the application. Stores recently used nicknames:
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `BACKEND_URL` | Backend server URL (without port) | `http://localhost` |
+| `BACKEND_PORT` | Backend server port | `8080` |
+| `RIG_ID` | Unique rig identifier (must match backend config) | `1` |
 
-```json
-{
-  "nicknames": [
-    "player1",
-    "player2",
-    "player3"
-  ]
-}
-```
+### Backend API Endpoints
 
-Up to 20 nicknames are stored, with the 6 most recent shown as quick-select buttons.
+The client communicates with these backend endpoints:
 
-### Modified Files
+- **Socket.IO**: Real-time queue updates
+  - Event: `queue-update` - Receives rig state changes
+  
+- **REST API**:
+  - `POST /rigs/:rigId/state` - Transition rig state (FREE ↔ RACING)
+  - `POST /queue/complete/:rigId` - Complete session and return to FREE
+  - `POST /queue/skip/:rigId` - Skip current player in queue
 
-The application modifies `~/Documents/Assetto Corsa/cfg/race.ini`, specifically:
-- `DRIVER_NAME` in the `[CAR_0]` section
-- `NAME` in the `[REMOTE]` section
+## UI Elements
+
+### Status Display
+
+- **Connection Status**: Green dot (●Connected) or red dot (●Disconnected)
+- **Player Name**: "Waiting for player..." or "Next: PlayerName"
+- **Queue Depth**: "N players waiting"
+- **Rig State**: "State: FREE" or "State: RACING"
+
+### Buttons
+
+- **Start Race** (green) - Enabled when player available and rig FREE
+- **Skip Player** (orange) - Enabled when player available and rig FREE
+- **End Session** (red) - Only visible when rig is RACING
 
 ## Development
 
 ### Code Structure
 
-**RaceIniHandler Class**
-- Extends `FileSystemEventHandler` from watchdog
-- Monitors `race.ini` for modifications
-- Handles file reading/writing with retry logic for locked files
-- Implements debouncing to prevent multiple triggers
+**config.py**
+- Loads environment variables from `.env`
+- Validates required configuration
+- Exports singleton `config` instance
 
-**NicknameInterceptorUI Class**
-- Main application GUI using tkinter
-- Manages nickname entry and quick-select interface
-- Coordinates file monitoring and UI updates
-- Handles persistent storage of nicknames
+**backend_client.py**
+- `BackendClient` class with REST methods and Socket.IO integration
+- Automatic reconnection with exponential backoff
+- Request retry logic (3 attempts)
+- Event callback system for queue updates
+
+**ac_nickname_interceptor.py**
+- `RaceIniHandler` - File system event handler for hot phase watchdog
+- `RaceInterceptorUI` - Minimal tkinter UI with backend integration
+- State machine logic (FREE ↔ RACING transitions)
 
 ### Key Dependencies
 
-- `watchdog.observers.Observer` - File system monitoring
-- `watchdog.events.FileSystemEventHandler` - Event handling
+- `watchdog` - File system monitoring (hot phase only)
+- `requests` - HTTP client for REST API
+- `python-dotenv` - Environment variable management
+- `python-socketio` - Socket.IO client for real-time updates
 - `tkinter` - GUI framework (included with Python)
-- `configparser` - INI file parsing
-- `pathlib` - Cross-platform path handling
 
-### Customization
+### Modified Files
 
-**UI Styling**: Modify the `setup_styles()` method to change colors and fonts
-
-**Timing**: Adjust sleep delays in `RaceIniHandler.on_modified()` if interception is unreliable
-
-**Nickname Limit**: Change the slice `[:20]` in `save_nicknames_list()` to store more/fewer nicknames
-
-**Quick-Select Count**: Modify `[:6]` in `setup_ui()` to show more/fewer quick-select buttons
+The application modifies `~/Documents/Assetto Corsa/cfg/race.ini`:
+- `DRIVER_NAME` in `[CAR_0]` section
+- `NAME` in `[REMOTE]` section
 
 ## Troubleshooting
 
-**Application doesn't start**
-- Verify Python is installed: `python --version`
-- Ensure Python is in PATH
-- Run `setup_interceptor.bat` to install dependencies
+### Connection Issues
 
-**Nickname not changing**
-- Confirm Assetto Corsa is installed in default location
-- Check that `~/Documents/Assetto Corsa/cfg/race.ini` exists
-- Ensure Content Manager is being used to start races
+**"Disconnected" status**
+- Verify backend server is running
+- Check `BACKEND_URL` and `BACKEND_PORT` in `.env`
+- Ensure firewall allows connections
+- Check network connectivity
 
-**File permission errors**
-- Close Assetto Corsa and Content Manager
-- Delete `race.ini` and let Content Manager recreate it
-- Run the application as administrator (if necessary)
-- 
+**"Rig not found" errors**
+- Verify `RIG_ID` matches backend configuration
+- Backend must have `NUMBER_OF_RIGS` >= your `RIG_ID`
+
+### Watchdog Issues
+
+**Player name not injecting**
+- Ensure Assetto Corsa is installed in default location
+- Verify `~/Documents/Assetto Corsa/cfg/race.ini` exists
+- Check that Content Manager is writing to `race.ini`
+- Try running as administrator (if permission errors)
+
+**Watchdog stays active**
+- Should automatically stop after successful injection
+- If stuck, click "End Session" to reset
+- Check console output for errors
+
+### State Issues
+
+**Rig stuck in RACING state**
+- Click "End Session" to transition back to FREE
+- If client crashes during RACING, manually restart and click "End Session"
+- Consider adding startup state reset logic if this occurs frequently
+
+### Dependency Errors
+
+**Import errors on startup**
+- Run `pip install -r requirements.txt`
+- Verify Python version: `python --version` (must be 3.6+)
+- Check that packages are installed: `pip list`
+
+## Architecture Integration
+
+This client is part of the larger Race Kiosk system:
+
+- **Control Server Backend** - Manages queues and rig states
+- **Web UI** - Players join queues via browser
+- **Race Interceptor** (this component) - Runs on each racing rig
+
+See main project README for full architecture documentation.
+
+## License
+
+See LICENSE file in project root.
