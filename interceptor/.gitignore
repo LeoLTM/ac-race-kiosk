@@ -1,0 +1,7 @@
+.env
+__pycache__/
+
+# pyinstaller build files
+dist/
+build/
+*.spec

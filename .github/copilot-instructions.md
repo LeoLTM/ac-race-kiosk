@@ -6,7 +6,7 @@ Queue-based racing session manager for Assetto Corsa across multiple racing rigs
 
 ## Architecture (3 Components)
 
-### 1. Control Server Backend (`control_server/backend/`)
+### 1. Control Server Backend (`server/backend/`)
 - **Stack**: Node.js/TypeScript, Express 5, Zod validation, OpenAPI docs
 - **Pattern**: Feature-based organization (`api/user/`, `api/healthCheck/`)
 - **Key Files**: 
@@ -14,7 +14,7 @@ Queue-based racing session manager for Assetto Corsa across multiple racing rigs
   - `src/common/models/serviceResponse.ts` - Standardized API responses
   - `src/common/utils/httpHandlers.ts` - Request validation with Zod
 
-### 2. Web UI (`control_server/frontend/`)
+### 2. Web UI (`server/frontend/`)
 - **Stack**: React 19, TanStack Router (file-based), TanStack Query, Tailwind CSS 4, shadcn/ui
 - **Routing**: File-based in `src/routes/` (auto-generates `routeTree.gen.ts`)
 - **Layout**: Root layout at `src/routes/__root.tsx` with `<Outlet />` for child routes
@@ -22,7 +22,7 @@ Queue-based racing session manager for Assetto Corsa across multiple racing rigs
   - `src/main.tsx` - QueryClient provider setup
   - `src/routes/__root.tsx` - Global layout with devtools
 
-### 3. Race Interceptor (`race_interceptor/`)
+### 3. Race Interceptor (`interceptor/`)
 - **Stack**: Python 3.6+, tkinter GUI, watchdog library
 - **Purpose**: Monitors `~/Documents/Assetto Corsa/cfg/race.ini` on each racing rig, intercepts Content Manager writes, replaces driver name with queued player
 - **Key Files**: `ac_nickname_interceptor.py` - Main application with `RaceIniHandler` and `NicknameInterceptorUI`
@@ -31,7 +31,7 @@ Queue-based racing session manager for Assetto Corsa across multiple racing rigs
 
 ### Backend Commands
 ```bash
-cd control_server/backend
+cd server/backend
 bun install                 # Install dependencies
 bun run start:dev          # Dev mode with --watch (tsx)
 bun run build              # TypeScript compile + tsup bundle
@@ -41,7 +41,7 @@ bun run check              # Biome format + lint
 
 ### Frontend Commands
 ```bash
-cd control_server/frontend
+cd server/frontend
 bun install                           # Install dependencies
 bun --bun run dev                     # Dev server on port 3000
 bun --bun run build                   # Production build
@@ -51,7 +51,7 @@ bun --bun run check                   # Prettier + ESLint fix
 
 ### Race Interceptor
 ```bash
-cd race_interceptor
+cd interceptor
 python -m pip install watchdog        # Install dependencies
 python ac_nickname_interceptor.py     # Run kiosk UI
 ```
@@ -99,12 +99,12 @@ python ac_nickname_interceptor.py     # Run kiosk UI
 
 | File | Purpose |
 |------|---------|
-| `control_server/backend/src/server.ts` | Express app setup, middleware chain |
-| `control_server/backend/src/common/models/serviceResponse.ts` | Standard response wrapper |
-| `control_server/backend/src/api/user/userService.ts` | Example service pattern |
-| `control_server/frontend/src/routes/__root.tsx` | Root layout with devtools |
-| `control_server/frontend/src/main.tsx` | App entry, QueryClient setup |
-| `race_interceptor/ac_nickname_interceptor.py` | File watcher + GUI kiosk |
+| `server/backend/src/server.ts` | Express app setup, middleware chain |
+| `server/backend/src/common/models/serviceResponse.ts` | Standard response wrapper |
+| `server/backend/src/api/user/userService.ts` | Example service pattern |
+| `server/frontend/src/routes/__root.tsx` | Root layout with devtools |
+| `server/frontend/src/main.tsx` | App entry, QueryClient setup |
+| `interceptor/ac_nickname_interceptor.py` | File watcher + GUI kiosk |
 
 ## Testing
 

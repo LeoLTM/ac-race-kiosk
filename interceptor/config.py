@@ -9,8 +9,25 @@ import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load .env file from the same directory as this script
-env_path = Path(__file__).parent / '.env'
+
+def get_executable_dir() -> Path:
+    """
+    Get the directory where the executable or script is located.
+    
+    When running as a PyInstaller bundle, sys.executable points to the .exe file.
+    When running as a script, __file__ points to this .py file.
+    """
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable (PyInstaller)
+        # sys.executable is the path to the .exe file
+        return Path(sys.executable).parent
+    else:
+        # Running as normal Python script
+        return Path(__file__).parent
+
+
+# Load .env file from the same directory as the executable/script
+env_path = get_executable_dir() / '.env'
 load_dotenv(dotenv_path=env_path)
 
 
