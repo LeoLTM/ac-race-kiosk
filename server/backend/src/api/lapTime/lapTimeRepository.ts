@@ -2,6 +2,12 @@ import { prisma } from "@/common/utils/prismaClient";
 import type { LapTime } from "@/generated/prisma";
 
 export class LapTimeRepository {
+	async findAll(): Promise<LapTime[]> {
+		return prisma.lapTime.findMany({
+			orderBy: { bestLapTimeMs: "asc" },
+		});
+	}
+
 	async findByNickName(nickName: string): Promise<LapTime | null> {
 		return prisma.lapTime.findUnique({
 			where: { nickName },

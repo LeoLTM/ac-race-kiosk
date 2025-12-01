@@ -1,10 +1,20 @@
 import { StatusCodes } from "http-status-codes";
 import { ServiceResponse } from "@/common/models/serviceResponse";
 import { lapTimeRepository } from "./lapTimeRepository";
-import type { SubmitLapTimeRequest, SubmitLapTimeResponse } from "./lapTimeModel";
+import type { SubmitLapTimeRequest, SubmitLapTimeResponse, GetAllLapTimesResponse } from "./lapTimeModel";
 import type { LapTime } from "@/generated/prisma";
 
 export class LapTimeService {
+	async getAllLapTimes(): Promise<ServiceResponse<GetAllLapTimesResponse | null>> {
+		try {
+			const lapTimes = await lapTimeRepository.findAll();
+			return ServiceResponse.success("Lap times retrieved", lapTimes.map((lt) => this.toLapTimeResponse(lt)));
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+			return ServiceResponse.failure(`Failed to retrieve lap times: ${errorMessage}`, null, StatusCodes.INTERNAL_SERVER_ERROR);
+		}
+	}
+
 	async submitLapTime(data: SubmitLapTimeRequest): Promise<ServiceResponse<SubmitLapTimeResponse | null>> {
 		try {
 			const existingLapTime = await lapTimeRepository.findByNickName(data.nickName);

@@ -33,3 +33,8 @@ export const SubmitLapTimeResponseSchema = z.object({
 });
 
 export type SubmitLapTimeResponse = z.infer<typeof SubmitLapTimeResponseSchema>;
+
+// Schema for GET all lap times response
+export const GetAllLapTimesResponseSchema = z.array(LapTimeSchema);
+
+export type GetAllLapTimesResponse = z.infer<typeof GetAllLapTimesResponseSchema>;
