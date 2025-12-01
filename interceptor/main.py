@@ -49,6 +49,7 @@ class RaceIniHandler(FileSystemEventHandler):
         self.on_injection_complete = on_injection_complete
         self.last_modified_time = 0
         self.injection_completed = False
+        self.on_injection_failed = None  # Optional callback for injection failure
         
     def on_modified(self, event):
         if event.is_directory or self.injection_completed:
@@ -71,6 +72,10 @@ class RaceIniHandler(FileSystemEventHandler):
                 self.injection_completed = True
                 if self.on_injection_complete:
                     self.on_injection_complete()
+            else:
+                # Injection failed - notify caller but allow retry
+                if self.on_injection_failed:
+                    self.on_injection_failed()
     
     def modify_race_ini(self, nickname):
         """
@@ -180,6 +185,7 @@ class RaceInterceptorUI:
         
         # Backend client
         self.backend = BackendClient(on_queue_update=self.on_queue_update)
+        self.backend.on_connection_change = self.on_connection_change
         
         # Configure styles
         self.setup_styles()
@@ -350,6 +356,11 @@ class RaceInterceptorUI:
             # Retry connection after 5 seconds
             self.window.after(5000, self.connect_to_backend)
     
+    def on_connection_change(self, connected: bool):
+        """Called when Socket.IO connection status changes (from background thread)"""
+        # Schedule UI update on main thread
+        self.window.after(0, lambda: self.update_connection_status(connected))
+    
     def update_connection_status(self, connected: bool):
         """Update connection status indicator"""
         if connected:
@@ -425,12 +436,28 @@ class RaceInterceptorUI:
         
         print(f"\n>>> Starting race for: {player_name}")
         
-        # Transition to RACING state
-        if self.backend.start_session(player_id):
+        # Disable buttons while processing
+        self.start_button.config(state='disabled')
+        self.skip_button.config(state='disabled')
+        
+        # Run in background thread to avoid UI freeze
+        def start_session_task():
+            success = self.backend.start_session(player_id)
+            # Update UI on main thread
+            self.window.after(0, lambda: self._on_start_race_complete(success, player_name))
+        
+        threading.Thread(target=start_session_task, daemon=True).start()
+    
+    def _on_start_race_complete(self, success: bool, player_name: str):
+        """Called when start session request completes"""
+        if success:
             # Start watchdog in hot phase
             self.start_watchdog(player_name)
         else:
             messagebox.showerror("Error", "Failed to start session. Please try again.")
+            # Re-enable buttons
+            self.start_button.config(state='normal')
+            self.skip_button.config(state='normal')
     
     def on_skip_player(self):
         """Called when user clicks Skip Player button"""
@@ -475,6 +502,7 @@ class RaceInterceptorUI:
             player_name=player_name,
             on_injection_complete=self.on_injection_complete
         )
+        self.event_handler.on_injection_failed = self.on_injection_failed
         
         # Start observer
         self.observer = Observer()
@@ -484,11 +512,17 @@ class RaceInterceptorUI:
         print(f">>> Watchdog active - waiting for Content Manager to write race.ini...")
         print(f">>> Will inject player name: {player_name}")
     
-    def stop_watchdog(self):
-        """Stop watchdog observer"""
+    def stop_watchdog(self, join=True):
+        """Stop watchdog observer
+        
+        Args:
+            join: Whether to wait for observer thread to finish. 
+                  Set to False when called from the observer's own thread.
+        """
         if self.observer:
             self.observer.stop()
-            self.observer.join()
+            if join:
+                self.observer.join()
             self.observer = None
             print(">>> Watchdog stopped")
     
@@ -496,11 +530,17 @@ class RaceInterceptorUI:
         """Called after successful race.ini injection"""
         print(">>> Injection complete, stopping watchdog")
         
-        # Stop watchdog on main thread
-        self.window.after(0, self.stop_watchdog)
+        # Stop watchdog on main thread without joining (since we're called from observer thread)
+        self.window.after(0, lambda: self.stop_watchdog(join=False))
         
         # Update UI to show racing in progress
         self.window.after(0, lambda: self.player_label.config(text="Name injected! Racing in progress..."))
+    
+    def on_injection_failed(self):
+        """Called when race.ini injection fails"""
+        print(">>> Injection failed, watchdog will retry on next file change")
+        # Update UI to show error (watchdog stays active for retry)
+        self.window.after(0, lambda: self.player_label.config(text="Injection failed, waiting to retry..."))
     
     def run(self):
         """Run the application"""

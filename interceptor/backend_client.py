@@ -47,6 +47,9 @@ class BackendClient:
         
         # Register event handlers
         self._setup_socket_handlers()
+        
+        # Callback for connection status changes
+        self.on_connection_change = None
     
     def _setup_socket_handlers(self):
         """Setup Socket.IO event handlers"""
@@ -57,12 +60,18 @@ class BackendClient:
             self.connected = True
             self.reconnect_attempts = 0
             print(f"✓ Connected to control server at {self.base_url}")
+            # Notify UI of connection status change
+            if self.on_connection_change:
+                self.on_connection_change(True)
         
         @self.sio.event
         def disconnect():
             """Called when Socket.IO connection is lost"""
             self.connected = False
             print(f"✗ Disconnected from control server")
+            # Notify UI of connection status change
+            if self.on_connection_change:
+                self.on_connection_change(False)
         
         @self.sio.event
         def connect_error(data):
