@@ -7,16 +7,19 @@ Client application for racing rigs that integrates with the control server backe
 This works by:
 1. Connecting to control server via Socket.IO for real-time queue updates
 2. Displaying next player from queue when available
-3. Starting "hot phase" watchdog when user clicks "Start Race"
-4. Intercepting Content Manager's race.ini writes to inject queued player name
-5. Returning to FREE state when user clicks "End Session"
+3. When user clicks "Start Race":
+   a. Starts "hot phase" watchdog to intercept race.ini writes
+   b. Launches Content Manager via acmanager:// URL to join configured server
+   c. Intercepts Content Manager's race.ini writes to inject queued player name
+4. Returning to FREE state when user clicks "End Session"
 
 Usage:
     python main.py
     
 Requires:
-    - .env file with BACKEND_URL, BACKEND_PORT, and RIG_ID
+    - .env file with BACKEND_URL, BACKEND_PORT, RIG_ID, and AC server config
     - Control server backend running and accessible
+    - Content Manager installed and configured
 """
 
 import os
@@ -26,12 +29,37 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from pathlib import Path
 import threading
+import socket
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 # Import local modules
 from config import config
 from backend_client import BackendClient
+
+
+def launch_content_manager(server_ip: str, http_port: int):
+    """
+    Launch Assetto Corsa via Content Manager with server join URL
+    
+    Args:
+        server_ip: Server IP address
+        http_port: Server HTTP port
+    """
+    # Resolve hostname to IP if needed
+    try:
+        resolved_ip = socket.gethostbyname(server_ip)
+    except socket.gaierror:
+        resolved_ip = server_ip
+    
+    # Create the acmanager:// URL for direct server join with autoJoin
+    join_url = f"acmanager://race/online/join?ip={resolved_ip}&httpPort={http_port}&autoJoin=true"
+    
+    print(f"Opening Content Manager with URL: {join_url}")
+    
+    # Use os.startfile to open the acmanager:// URL (Windows will route to Content Manager)
+    os.startfile(join_url)
+    print("Content Manager join request sent")
 
 
 class RaceIniHandler(FileSystemEventHandler):
@@ -451,13 +479,29 @@ class RaceInterceptorUI:
     def _on_start_race_complete(self, success: bool, player_name: str):
         """Called when start session request completes"""
         if success:
-            # Start watchdog in hot phase
+            # Start watchdog in hot phase to intercept race.ini
             self.start_watchdog(player_name)
+            
+            # Launch Content Manager to join server
+            # Small delay to ensure watchdog is ready
+            self.window.after(500, lambda: self._launch_game(player_name))
         else:
             messagebox.showerror("Error", "Failed to start session. Please try again.")
             # Re-enable buttons
             self.start_button.config(state='normal')
             self.skip_button.config(state='normal')
+    
+    def _launch_game(self, player_name: str):
+        """Launch Content Manager to join the AC server"""
+        try:
+            launch_content_manager(
+                server_ip=config.AC_SERVER_IP,
+                http_port=config.AC_SERVER_HTTP_PORT
+            )
+            self.player_label.config(text=f"Launching game for {player_name}...")
+        except Exception as e:
+            print(f"❌ Error launching Content Manager: {e}")
+            messagebox.showerror("Error", f"Failed to launch game: {e}")
     
     def on_skip_player(self):
         """Called when user clicks Skip Player button"""

@@ -30,20 +30,19 @@ class AssettoCorsaServerJoiner:
         self.cfg_path.mkdir(parents=True, exist_ok=True)
     
     def find_ac_installation(self) -> Optional[Path]:
-        """Try to find Assetto Corsa installation directory"""
-        possible_paths = [
-            Path("D:/03_Software/Steam/steamapps/common/assettocorsa"),
-            Path("C:/Program Files (x86)/Steam/steamapps/common/assettocorsa"),
-            Path("D:/SteamLibrary/steamapps/common/assettocorsa"),
-            Path("C:/Steam/steamapps/common/assettocorsa"),
-            Path(os.environ.get("AC_ROOT", "")),
-        ]
+        """Find Assetto Corsa installation from AC_ROOT environment variable"""
+        ac_root = os.environ.get("AC_ROOT")
         
-        for path in possible_paths:
-            if path.exists() and (path / "acs.exe").exists():
-                print(f"Found AC installation at: {path}")
-                return path
+        if not ac_root:
+            print("Error: AC_ROOT environment variable not set")
+            return None
         
+        path = Path(ac_root)
+        if path.exists() and (path / "acs.exe").exists():
+            print(f"Found AC installation at: {path}")
+            return path
+        
+        print(f"Error: AC installation not found at AC_ROOT: {ac_root}")
         return None
     
     def resolve_ip(self, hostname: str) -> str:

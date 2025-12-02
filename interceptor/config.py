@@ -39,6 +39,14 @@ class Config:
         self.BACKEND_PORT = self._get_required_env('BACKEND_PORT')
         self.RIG_ID = self._get_required_env('RIG_ID')
         
+        # Assetto Corsa server configuration
+        self.AC_SERVER_IP = self._get_required_env('AC_SERVER_IP')
+        self.AC_SERVER_PORT = self._get_optional_env('AC_SERVER_PORT', '9600')
+        self.AC_SERVER_HTTP_PORT = self._get_required_env('AC_SERVER_HTTP_PORT')
+        self.AC_SERVER_NAME = self._get_optional_env('AC_SERVER_NAME', 'Race Server')
+        self.AC_CAR_ID = self._get_required_env('AC_CAR_ID')
+        self.AC_STEAM_ID = self._get_required_env('AC_STEAM_ID')
+        
         # Validate and parse RIG_ID as integer
         try:
             self.RIG_ID = int(self.RIG_ID)
@@ -61,6 +69,19 @@ class Config:
         
         # Construct full backend URL
         self.BACKEND_BASE_URL = f"{self.BACKEND_URL}:{self.BACKEND_PORT}"
+        
+        # Parse AC server ports as integers
+        try:
+            self.AC_SERVER_PORT = int(self.AC_SERVER_PORT)
+        except ValueError:
+            print(f"❌ Error: Invalid AC_SERVER_PORT value '{self.AC_SERVER_PORT}'")
+            sys.exit(1)
+        
+        try:
+            self.AC_SERVER_HTTP_PORT = int(self.AC_SERVER_HTTP_PORT)
+        except ValueError:
+            print(f"❌ Error: Invalid AC_SERVER_HTTP_PORT value '{self.AC_SERVER_HTTP_PORT}'")
+            sys.exit(1)
     
     def _get_required_env(self, key: str) -> str:
         """Get required environment variable or exit with error"""
@@ -71,6 +92,30 @@ class Config:
             print(f"   Expected location: {env_path}")
             sys.exit(1)
         return value
+    
+    def _get_optional_env(self, key: str, default: str) -> str:
+        """Get optional environment variable with default value"""
+        return os.getenv(key, default)
+    
+    def get_server_config(self, driver_name: str) -> dict:
+        """
+        Get server configuration dictionary for AssettoCorsaServerJoiner
+        
+        Args:
+            driver_name: Name of the driver to use
+            
+        Returns:
+            Server configuration dictionary
+        """
+        return {
+            'server_ip': self.AC_SERVER_IP,
+            'server_port': self.AC_SERVER_PORT,
+            'server_http_port': self.AC_SERVER_HTTP_PORT,
+            'server_name': self.AC_SERVER_NAME,
+            'car_id': self.AC_CAR_ID,
+            'steam_id': self.AC_STEAM_ID,
+            'driver_name': driver_name,
+        }
     
     def __repr__(self):
         return f"Config(BACKEND_BASE_URL='{self.BACKEND_BASE_URL}', RIG_ID={self.RIG_ID})"
