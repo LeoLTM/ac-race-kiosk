@@ -980,45 +980,6 @@ class RaceInterceptorUI:
 
 
 # =============================================================================
-# Dependency Checking
-# =============================================================================
-
-def check_dependencies() -> bool:
-    """
-    Check if required dependencies are installed.
-
-    Returns:
-        True if all dependencies are available, False otherwise.
-    """
-    required_packages = {
-        "watchdog": "watchdog",
-        "requests": "requests",
-        "dotenv": "python-dotenv",
-        "socketio": "python-socketio[client]",
-    }
-
-    missing: list[str] = []
-    for module, package in required_packages.items():
-        try:
-            __import__(module)
-        except ImportError:
-            missing.append(package)
-
-    if not missing:
-        return True
-
-    print("❌ ERROR: Required packages are not installed!")
-    print("\nMissing packages:")
-    for pkg in missing:
-        print(f"  - {pkg}")
-    print("\nPlease install them using:")
-    print("    pip install -r requirements.txt")
-    print("\nOr:")
-    print("    python -m pip install -r requirements.txt")
-    return False
-
-
-# =============================================================================
 # Entry Point
 # =============================================================================
 
@@ -1035,10 +996,6 @@ def main() -> int:
     print(f"Backend: {config.BACKEND_BASE_URL}")
     print("=" * 60)
     print()
-
-    if not check_dependencies():
-        input("\nPress Enter to exit...")
-        return 1
 
     app = RaceInterceptorUI()
     app.run()
