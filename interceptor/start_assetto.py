@@ -422,10 +422,10 @@ def main():
         'server_ip': '79.205.108.146',
         'server_port': 9600,
         'server_http_port': 8089,
-        'server_name': 'Brands Hatch Indy RD/ED',
+        'server_name': 'Brands Hatch Indy',
         'car_id': 'ks_mercedes_amg_gt3',
         'steam_id': "76561198294533642",
-        'driver_name': 'PenisKopf',
+        'driver_name': 'Test Driver',
     }
     
     try:
