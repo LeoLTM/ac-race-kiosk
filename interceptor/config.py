@@ -47,6 +47,9 @@ class Config:
         self.AC_CAR_ID = self._get_required_env('AC_CAR_ID')
         self.AC_STEAM_ID = self._get_required_env('AC_STEAM_ID')
         
+        # Race time limit configuration
+        self.RACE_TIME_LIMIT_MINUTES = self._get_optional_env('RACE_TIME_LIMIT_MINUTES', '10')
+        
         # Validate and parse RIG_ID as integer
         try:
             self.RIG_ID = int(self.RIG_ID)
@@ -81,6 +84,16 @@ class Config:
             self.AC_SERVER_HTTP_PORT = int(self.AC_SERVER_HTTP_PORT)
         except ValueError:
             print(f"❌ Error: Invalid AC_SERVER_HTTP_PORT value '{self.AC_SERVER_HTTP_PORT}'")
+            sys.exit(1)
+        
+        # Parse race time limit as integer
+        try:
+            self.RACE_TIME_LIMIT_MINUTES = int(self.RACE_TIME_LIMIT_MINUTES)
+            if self.RACE_TIME_LIMIT_MINUTES < 1:
+                raise ValueError("RACE_TIME_LIMIT_MINUTES must be at least 1")
+        except ValueError as e:
+            print(f"❌ Error: Invalid RACE_TIME_LIMIT_MINUTES value '{self.RACE_TIME_LIMIT_MINUTES}'")
+            print(f"   Details: {e}")
             sys.exit(1)
     
     def _get_required_env(self, key: str) -> str:

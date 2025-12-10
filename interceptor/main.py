@@ -92,9 +92,9 @@ class UIConfig:
     """UI configuration constants."""
 
     WINDOW_WIDTH: int = 600
-    WINDOW_HEIGHT: int = 400
-    PADDING_MAIN: str = "30"
-    PADDING_STATUS: str = "25"
+    WINDOW_HEIGHT: int = 450
+    PADDING_MAIN: str = "20"
+    PADDING_STATUS: str = "20"
     FONT_TITLE: tuple[str, int, str] = ("Arial Black", 20, "bold")
     FONT_PLAYER: tuple[str, int, str] = ("Arial", 16, "bold")
     FONT_STATUS: tuple[str, int] = ("Arial", 12)
@@ -116,6 +116,7 @@ class TimingConfig:
     FILE_WRITE_DELAY_SECONDS: float = 0.15
     FILE_RETRY_DELAY_SECONDS: float = 0.1
     MAX_FILE_RETRIES: int = 5
+    TIMER_UPDATE_MS: int = 1000
 
 
 # Singleton instances
@@ -142,6 +143,8 @@ class AppState:
     rig_state: str = RigState.FREE
     next_player: Optional[PlayerData] = None
     queue_length: int = 0
+    race_start_time: Optional[float] = None
+    remaining_seconds: int = 0
 
     def update_from_backend(self, rig_data: dict[str, Any]) -> None:
         """
@@ -524,6 +527,12 @@ class StyleManager:
             foreground=COLORS.ERROR,
             font=UI_CONFIG.FONT_CONNECTION,
         )
+        style.configure(
+            "Timer.TLabel",
+            background=COLORS.FRAME_BACKGROUND,
+            foreground=COLORS.WARNING,
+            font=UI_CONFIG.FONT_PLAYER,
+        )
 
 
 # =============================================================================
@@ -548,9 +557,11 @@ class RaceInterceptorUI:
         "_player_label",
         "_queue_label",
         "_state_label",
+        "_timer_label",
         "_start_button",
         "_skip_button",
         "_end_button",
+        "_timer_callback_id",
     )
 
     def __init__(self) -> None:
@@ -565,9 +576,11 @@ class RaceInterceptorUI:
         self._player_label: ttk.Label
         self._queue_label: ttk.Label
         self._state_label: ttk.Label
+        self._timer_label: ttk.Label
         self._start_button: tk.Button
         self._skip_button: tk.Button
         self._end_button: tk.Button
+        self._timer_callback_id: Optional[str] = None
 
         # Initialize backend client
         self._backend = BackendClient(on_queue_update=self._on_queue_update)
@@ -593,15 +606,16 @@ class RaceInterceptorUI:
         """
         window = tk.Tk()
         window.title(f"Race Interceptor - Rig {config.RIG_ID}")
-        window.geometry(f"{UI_CONFIG.WINDOW_WIDTH}x{UI_CONFIG.WINDOW_HEIGHT}")
         window.resizable(False, False)
         window.configure(bg=COLORS.BACKGROUND)
 
         # Center window on screen
         window.update_idletasks()
-        x = (window.winfo_screenwidth() - UI_CONFIG.WINDOW_WIDTH) // 2
-        y = (window.winfo_screenheight() - UI_CONFIG.WINDOW_HEIGHT) // 2
-        window.geometry(f"+{x}+{y}")
+        screen_width = window.winfo_screenwidth()
+        screen_height = window.winfo_screenheight()
+        x = (screen_width - UI_CONFIG.WINDOW_WIDTH) // 2
+        y = (screen_height - UI_CONFIG.WINDOW_HEIGHT) // 2
+        window.geometry(f"{UI_CONFIG.WINDOW_WIDTH}x{UI_CONFIG.WINDOW_HEIGHT}+{x}+{y}")
 
         return window
 
@@ -624,12 +638,12 @@ class RaceInterceptorUI:
             parent,
             text=f"Racing Rig {config.RIG_ID}",
             style="Title.TLabel",
-        ).grid(row=0, column=0, pady=(0, 30))
+        ).grid(row=0, column=0, pady=(0, 20))
 
     def _create_status_frame(self, parent: ttk.Frame) -> None:
         """Create the status display frame."""
         status_frame = ttk.Frame(parent, padding=UI_CONFIG.PADDING_STATUS, style="Inner.TFrame")
-        status_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 20))
+        status_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 25))
         status_frame.columnconfigure(0, weight=1)
 
         self._connection_label = ttk.Label(
@@ -637,28 +651,35 @@ class RaceInterceptorUI:
             text="● Disconnected",
             style="Disconnected.TLabel",
         )
-        self._connection_label.grid(row=0, column=0, pady=(0, 15))
+        self._connection_label.grid(row=0, column=0, pady=(0, 12))
 
         self._player_label = ttk.Label(
             status_frame,
             text="Waiting for player...",
             style="Player.TLabel",
         )
-        self._player_label.grid(row=1, column=0, pady=(0, 10))
+        self._player_label.grid(row=1, column=0, pady=(0, 8))
 
         self._queue_label = ttk.Label(
             status_frame,
             text="Queue: 0 players waiting",
             style="Queue.TLabel",
         )
-        self._queue_label.grid(row=2, column=0, pady=(0, 20))
+        self._queue_label.grid(row=2, column=0, pady=(0, 8))
 
         self._state_label = ttk.Label(
             status_frame,
             text="State: FREE",
             style="Status.TLabel",
         )
-        self._state_label.grid(row=3, column=0)
+        self._state_label.grid(row=3, column=0, pady=(0, 5))
+
+        self._timer_label = ttk.Label(
+            status_frame,
+            text="",
+            style="Timer.TLabel",
+        )
+        self._timer_label.grid(row=4, column=0, pady=(5, 0))
 
     def _create_button_frame(self, parent: ttk.Frame) -> None:
         """Create the button frame with action buttons."""
@@ -837,6 +858,7 @@ class RaceInterceptorUI:
     def _show_racing_ui(self) -> None:
         """Configure UI for RACING state."""
         self._player_label.config(text="Racing in progress...")
+        self._start_timer()
         self._start_button.grid_remove()
         self._skip_button.grid_remove()
         self._end_button.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E))
@@ -845,6 +867,7 @@ class RaceInterceptorUI:
         """Configure UI when a player is available in the queue."""
         player_name = self._state.next_player.get("name", "Unknown") if self._state.next_player else "Unknown"
         self._player_label.config(text=f"Next: {player_name}")
+        self._stop_timer()
         self._start_button.config(state="normal")
         self._skip_button.config(state="normal")
         self._end_button.grid_remove()
@@ -854,11 +877,124 @@ class RaceInterceptorUI:
     def _show_waiting_ui(self) -> None:
         """Configure UI when waiting for players."""
         self._player_label.config(text="Waiting for player...")
+        self._stop_timer()
         self._start_button.config(state="disabled")
         self._skip_button.config(state="disabled")
         self._end_button.grid_remove()
         self._start_button.grid(row=0, column=0, padx=(0, 10), sticky=(tk.W, tk.E))
         self._skip_button.grid(row=0, column=1, padx=(10, 0), sticky=(tk.W, tk.E))
+
+    # -------------------------------------------------------------------------
+    # Countdown Timer
+    # -------------------------------------------------------------------------
+
+    def _start_timer(self) -> None:
+        """Start the countdown timer when racing begins."""
+        if self._state.race_start_time is None:
+            self._state.race_start_time = time.time()
+            logger.info(">>> Started countdown timer")
+        self._update_timer()
+
+    def _stop_timer(self) -> None:
+        """Stop the countdown timer."""
+        if self._timer_callback_id is not None:
+            self._window.after_cancel(self._timer_callback_id)
+            self._timer_callback_id = None
+        self._state.race_start_time = None
+        self._state.remaining_seconds = 0
+        self._timer_label.config(text="")
+        logger.info(">>> Stopped countdown timer")
+
+    def _update_timer(self) -> None:
+        """Update the countdown timer display."""
+        if self._state.race_start_time is None:
+            return
+
+        elapsed_seconds = int(time.time() - self._state.race_start_time)
+        total_seconds = config.RACE_TIME_LIMIT_MINUTES * 60
+        remaining = total_seconds - elapsed_seconds
+
+        if remaining <= 0:
+            self._on_timer_expired()
+            return
+
+        self._state.remaining_seconds = remaining
+        minutes = remaining // 60
+        seconds = remaining % 60
+        self._timer_label.config(text=f"Time remaining: {minutes}:{seconds:02d}")
+
+        # Schedule next update
+        self._timer_callback_id = self._window.after(TIMING.TIMER_UPDATE_MS, self._update_timer)
+
+    def _on_timer_expired(self) -> None:
+        """Handle timer expiration - notify player to stop racing."""
+        logger.warning(">>> Race time limit reached!")
+        self._stop_timer()
+        self._show_time_expired_popup()
+
+    def _show_time_expired_popup(self) -> None:
+        """Show a topmost popup notifying the player their time is up."""
+        popup = tk.Toplevel(self._window)
+        popup.title("Time's Up!")
+        popup.configure(bg=COLORS.BACKGROUND)
+        popup.resizable(False, False)
+        
+        # Set size and center before showing
+        popup_width = 450
+        popup_height = 250
+        popup.withdraw()  # Hide while positioning
+        popup.update_idletasks()
+        
+        screen_width = popup.winfo_screenwidth()
+        screen_height = popup.winfo_screenheight()
+        x = (screen_width - popup_width) // 2
+        y = (screen_height - popup_height) // 2
+        popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
+        
+        popup.deiconify()  # Show after positioning
+        popup.attributes("-topmost", True)
+        popup.grab_set()
+        popup.focus_force()
+
+        # Message frame with better padding
+        message_frame = ttk.Frame(popup, padding="40", style="Main.TFrame")
+        message_frame.pack(fill=tk.BOTH, expand=True)
+        message_frame.columnconfigure(0, weight=1)
+
+        # Warning message
+        warning_label = ttk.Label(
+            message_frame,
+            text="⏰ Time's Up! ⏰",
+            style="Title.TLabel",
+        )
+        warning_label.grid(row=0, column=0, pady=(0, 15))
+
+        info_label = ttk.Label(
+            message_frame,
+            text=f"Your {config.RACE_TIME_LIMIT_MINUTES}-minute session has ended.\nPlease finish your current lap and return to the menu.",
+            style="Status.TLabel",
+            justify=tk.CENTER,
+        )
+        info_label.grid(row=1, column=0, pady=(0, 25))
+
+        # OK button
+        ok_button = tk.Button(
+            message_frame,
+            text="OK",
+            command=popup.destroy,
+            bg=COLORS.BUTTON_START,
+            fg="white",
+            font=UI_CONFIG.FONT_BUTTON,
+            relief="raised",
+            bd=3,
+            padx=50,
+            pady=12,
+            cursor="hand2",
+        )
+        ok_button.grid(row=2, column=0)
+
+        # Auto-close after 10 seconds
+        popup.after(10000, popup.destroy)
 
     # -------------------------------------------------------------------------
     # Button Actions
@@ -973,6 +1109,7 @@ class RaceInterceptorUI:
     def _on_closing(self) -> None:
         """Handle window close event."""
         logger.info("Window closing, shutting down...")
+        self._stop_timer()
         self._watchdog.stop()
         self._backend.disconnect()
         logger.info("Shutdown complete")
