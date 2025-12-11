@@ -417,52 +417,9 @@ class WatchdogManager:
         """Initialize the watchdog manager."""
         self._observer: Optional[BaseObserver] = None
         self._event_handler: Optional[RaceIniHandler] = None
-        self._cfg_dir, self._race_ini_path = self._find_ac_config_dir()
-
-    @staticmethod
-    def _find_ac_config_dir() -> tuple[Path, Path]:
-        """
-        Find the Assetto Corsa config directory.
-        Checks multiple possible locations:
-        1. Standard Documents folder: ~/Documents/Assetto Corsa/cfg
-        2. OneDrive Documents (C:): ~/OneDrive/Documents/Assetto Corsa/cfg
-        3. OneDrive Documents (D:): D:/OneDrive/Documents/Assetto Corsa/cfg
-        4. OneDrive Documents (E:): E:/OneDrive/Documents/Assetto Corsa/cfg
-
-        Returns:
-            Tuple of (cfg_dir, race_ini_path) for the first existing location.
-
-        Raises:
-            FileNotFoundError: If no valid Assetto Corsa config directory is found.
-        """
-        home = Path(os.path.expanduser("~"))
-        
-        # List of possible paths to check
-        possible_paths = [
-            # Standard Documents folder
-            home / "Documents" / "Assetto Corsa" / "cfg",
-            # OneDrive Documents in user profile
-            home / "OneDrive" / "Documents" / "Assetto Corsa" / "cfg",
-            # OneDrive on different drives (common in Windows)
-            Path("D:/OneDrive/Documents/Assetto Corsa/cfg"),
-            Path("E:/OneDrive/Documents/Assetto Corsa/cfg"),
-        ]
-        
-        for cfg_dir in possible_paths:
-            race_ini = cfg_dir / "race.ini"
-            if cfg_dir.exists():
-                logger.info("Found Assetto Corsa config directory: %s", cfg_dir)
-                return cfg_dir, race_ini
-        
-        # If no existing directory found, return the standard path and log a warning
-        default_cfg_dir = home / "Documents" / "Assetto Corsa" / "cfg"
-        default_race_ini = default_cfg_dir / "race.ini"
-        logger.warning(
-            "No existing Assetto Corsa config directory found. "
-            "Will create and monitor standard path: %s",
-            default_cfg_dir
-        )
-        return default_cfg_dir, default_race_ini
+        self._race_ini_path = config.RACE_INI_PATH
+        self._cfg_dir = self._race_ini_path.parent
+        logger.info("Watchdog configured to monitor: %s", self._race_ini_path)
 
     @property
     def is_active(self) -> bool:

@@ -47,6 +47,9 @@ class Config:
         self.AC_CAR_ID = self._get_required_env('AC_CAR_ID')
         self.AC_STEAM_ID = self._get_required_env('AC_STEAM_ID')
         
+        # Race.ini file path configuration
+        self.RACE_INI_PATH = self._get_required_env('RACE_INI_PATH')
+        
         # Race time limit configuration
         self.RACE_TIME_LIMIT_MINUTES = self._get_optional_env('RACE_TIME_LIMIT_MINUTES', '10')
         self.RACE_TIME_BUFFER_SECONDS = self._get_optional_env('RACE_TIME_BUFFER_SECONDS', '30')
@@ -106,6 +109,12 @@ class Config:
             print(f"❌ Error: Invalid RACE_TIME_BUFFER_SECONDS value '{self.RACE_TIME_BUFFER_SECONDS}'")
             print(f"   Details: {e}")
             sys.exit(1)
+        
+        # Validate RACE_INI_PATH
+        self.RACE_INI_PATH = Path(self.RACE_INI_PATH).expanduser()
+        if not self.RACE_INI_PATH.parent.exists():
+            print(f"⚠️  Warning: Race.ini parent directory does not exist: {self.RACE_INI_PATH.parent}")
+            print(f"   The directory will be created when the watchdog starts.")
     
     def _get_required_env(self, key: str) -> str:
         """Get required environment variable or exit with error"""
