@@ -49,6 +49,7 @@ class Config:
         
         # Race time limit configuration
         self.RACE_TIME_LIMIT_MINUTES = self._get_optional_env('RACE_TIME_LIMIT_MINUTES', '10')
+        self.RACE_TIME_BUFFER_SECONDS = self._get_optional_env('RACE_TIME_BUFFER_SECONDS', '30')
         
         # Validate and parse RIG_ID as integer
         try:
@@ -93,6 +94,16 @@ class Config:
                 raise ValueError("RACE_TIME_LIMIT_MINUTES must be at least 1")
         except ValueError as e:
             print(f"❌ Error: Invalid RACE_TIME_LIMIT_MINUTES value '{self.RACE_TIME_LIMIT_MINUTES}'")
+            print(f"   Details: {e}")
+            sys.exit(1)
+        
+        # Parse race time buffer as integer
+        try:
+            self.RACE_TIME_BUFFER_SECONDS = int(self.RACE_TIME_BUFFER_SECONDS)
+            if self.RACE_TIME_BUFFER_SECONDS < 0:
+                raise ValueError("RACE_TIME_BUFFER_SECONDS must be non-negative")
+        except ValueError as e:
+            print(f"❌ Error: Invalid RACE_TIME_BUFFER_SECONDS value '{self.RACE_TIME_BUFFER_SECONDS}'")
             print(f"   Details: {e}")
             sys.exit(1)
     

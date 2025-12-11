@@ -911,7 +911,7 @@ class RaceInterceptorUI:
             return
 
         elapsed_seconds = int(time.time() - self._state.race_start_time)
-        total_seconds = config.RACE_TIME_LIMIT_MINUTES * 60
+        total_seconds = (config.RACE_TIME_LIMIT_MINUTES * 60) + config.RACE_TIME_BUFFER_SECONDS
         remaining = total_seconds - elapsed_seconds
 
         if remaining <= 0:
