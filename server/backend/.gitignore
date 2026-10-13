@@ -18,6 +18,8 @@ dist-ssr
 # SQLite database files
 *.db
 *.db-journal
+*.db-wal
+*.db-shm
 prisma/dev.db
 src/generated/
 
