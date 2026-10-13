@@ -36,7 +36,7 @@ A lap is reported as invalid, and doesn't reach the leaderboard, when:
 
 ## Installation (per rig)
 
-1. Download the `racekiosk` artifact from GitHub Actions, or use this folder directly.
+1. Download `racekiosk-<version>.zip` from the GitHub Releases page (or the `racekiosk` artifact of a GitHub Actions run), or use this folder directly (it then reports version `0.0.0-dev`).
 2. Copy the `racekiosk` folder to `<AC install>/apps/python/racekiosk/`.
    - The folder name must stay `racekiosk`, because it has to match `racekiosk.py`.
 3. Start AC once, or copy `settings_defaults.ini` to `settings.ini`, then edit `settings.ini`:

@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    # Path filters are ignored for tag pushes, so every v* tag builds and releases
+    tags:
+      - 'v*'
     paths:
       - 'ac-app/**'
   pull_request:
@@ -13,6 +16,9 @@ on:
 jobs:
     build:
         runs-on: windows-latest
+
+        permissions:
+          contents: write
 
         steps:
         - name: Checkout repository
@@ -36,9 +42,39 @@ jobs:
             Remove-Item -Recurse -Force -ErrorAction SilentlyContinue dist/racekiosk/settings.ini, dist/racekiosk/outbox.json
             Get-ChildItem dist -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force
 
+        - name: Stamp app version
+          shell: pwsh
+          run: |
+            if ($env:GITHUB_REF_TYPE -eq 'tag') {
+              $version = $env:GITHUB_REF_NAME -replace '^v', ''
+            } else {
+              $version = "0.0.0-dev+$($env:GITHUB_SHA.Substring(0, 7))"
+            }
+            $file = 'dist/racekiosk/racekiosk_lib/__init__.py'
+            $content = Get-Content -Raw $file
+            $pattern = '(?m)^APP_VERSION = "[^"]*"'
+            if ($content -notmatch $pattern) { throw "APP_VERSION line not found in $file" }
+            # UTF-8 without BOM, which Python 3.3 reads fine
+            [IO.File]::WriteAllText($file, ($content -replace $pattern, "APP_VERSION = `"$version`""))
+            Write-Host "APP_VERSION = $version"
+
         # Extract the downloaded zip into <AC>/apps/python/ (it contains the racekiosk folder)
         - name: Upload artifact
+          if: ${{ !startsWith(github.ref, 'refs/tags/') }}
           uses: actions/upload-artifact@v4
           with:
             name: racekiosk
             path: dist/
+
+        - name: Zip app for release
+          if: startsWith(github.ref, 'refs/tags/')
+          shell: pwsh
+          run: Compress-Archive -Path dist/racekiosk -DestinationPath "racekiosk-${{ github.ref_name }}.zip"
+
+        - name: Create release
+          if: startsWith(github.ref, 'refs/tags/')
+          uses: softprops/action-gh-release@v3
+          with:
+            files: racekiosk-${{ github.ref_name }}.zip
+            generate_release_notes: true
+            prerelease: ${{ contains(github.ref_name, '-') }}

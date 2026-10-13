@@ -7,4 +7,6 @@ Everything except ui.py and sim_info.py is plain Python 3.3 without AC imports, 
 on a desktop Python (see ac-app/tests).
 """
 
-APP_VERSION = "1.0.0"
+# Placeholder for runs from the repo. The CI build (.github/workflows/ac-app.yml) replaces this line in the
+# packaged copy: the tag without its "v" on releases (v0.1.0 -> 0.1.0), "0.0.0-dev+<commit>" otherwise.
+APP_VERSION = "0.0.0-dev"
