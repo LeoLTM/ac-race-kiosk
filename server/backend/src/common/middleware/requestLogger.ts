@@ -31,7 +31,11 @@ const addRequestId = (req: Request, res: Response, next: NextFunction) => {
 const httpLogger = pinoHttp({
 	logger,
 	genReqId: (req) => req.headers["x-request-id"] as string,
-	customLogLevel: (_req, res) => getLogLevel(res.statusCode),
+	customLogLevel: (req, res) => {
+		// Every rig app sends a heartbeat each second; only log the failing ones
+		if (req.url?.endsWith("/heartbeat") && res.statusCode < StatusCodes.BAD_REQUEST) return "silent";
+		return getLogLevel(res.statusCode);
+	},
 	customSuccessMessage: (req) => `${req.method} ${req.url} completed`,
 	customErrorMessage: (_req, res) => `Request failed with status code: ${res.statusCode}`,
 	// Only log response bodies in development
