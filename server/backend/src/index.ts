@@ -1,9 +1,10 @@
 import { createServer } from "node:http";
 import { Server as SocketIOServer } from "socket.io";
 import { env } from "@/common/utils/envConfig";
+import { configureDatabase } from "@/common/utils/prismaClient";
 import { app, logger } from "@/server";
-import { queueService } from "@/api/queue/queueService";
-import { lapTimeService } from "@/api/lapTime/lapTimeService";
+import { rigService } from "@/api/rig/rigService";
+import { leaderboardService } from "@/api/leaderboard/leaderboardService";
 
 const httpServer = createServer(app);
 
@@ -16,8 +17,8 @@ const io = new SocketIOServer(httpServer, {
 });
 
 // Connect Socket.io to services
-queueService.setSocketIO(io);
-lapTimeService.setSocketIO(io);
+rigService.setSocketIO(io);
+leaderboardService.setSocketIO(io);
 
 // Socket.io connection handler
 io.on("connection", (socket) => {
@@ -28,13 +29,31 @@ io.on("connection", (socket) => {
 	});
 });
 
-const server = httpServer.listen(env.PORT, () => {
-	const { NODE_ENV, HOST, PORT } = env;
-	logger.info(`Server (${NODE_ENV}) running on port http://${HOST}:${PORT}`);
-});
+if (!env.KIOSK_KEY) {
+	logger.warn("KIOSK_KEY is not set - rig and admin endpoints are unprotected");
+}
+
+let server: ReturnType<typeof httpServer.listen>;
+
+// Create the configured rigs, then start the 1s tick (session hard stops, no-shows, calling players)
+configureDatabase()
+	.then(() => rigService.init())
+	.then(() => {
+		rigService.startTicker();
+		server = httpServer.listen(env.PORT, () => {
+			const { NODE_ENV, HOST, PORT } = env;
+			logger.info(`Server (${NODE_ENV}) running on port http://${HOST}:${PORT}`);
+		});
+	})
+	.catch((error) => {
+		logger.error({ error }, "Failed to initialize rigs");
+		process.exit(1);
+	});
 
 const onCloseSignal = () => {
 	logger.info("sigint received, shutting down");
+	rigService.stopTicker();
+	if (!server) process.exit();
 	server.close(() => {
 		logger.info("server closed");
 		process.exit();
