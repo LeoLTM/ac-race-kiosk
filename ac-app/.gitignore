@@ -1,0 +1,5 @@
+# Per-rig files created at runtime
+racekiosk/settings.ini
+racekiosk/outbox.json
+racekiosk/outbox.json.tmp
+__pycache__/
