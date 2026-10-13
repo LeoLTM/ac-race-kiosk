@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Queue-based racing session manager for Assetto Corsa across multiple racing rigs. Players join via web UI, backend manages queues/rig states, and Python interceptors running on each rig inject player names into Content Manager's `race.ini` file.
+Queue-based racing session manager for Assetto Corsa across multiple racing rigs. Players join one shared queue via the web UI; the backend calls them to the next free rig, runs timed sessions (hard stop) and keeps a lap-time leaderboard. An in-game AC Python app on each rig (`ac-app/racekiosk/`) shows the handover screens and reports laps. AC keeps running all day - drivers are swapped in the app, not by restarting the game.
 
 ## Architecture (3 Components)
 
@@ -25,10 +25,15 @@ Queue-based racing session manager for Assetto Corsa across multiple racing rigs
   - `src/main.tsx` - QueryClient provider setup
   - `src/routes/__root.tsx` - Global layout with devtools
 
-### 3. Race Interceptor (`interceptor/`)
-- **Stack**: Python 3.6+, tkinter GUI, watchdog library
-- **Purpose**: Monitors `~/Documents/Assetto Corsa/cfg/race.ini` on each racing rig, intercepts Content Manager writes, replaces driver name with queued player
-- **Key Files**: `main.py` - Main application with `RaceIniHandler` and `NicknameInterceptorUI`
+### 3. AC App (`ac-app/racekiosk/`)
+- **Stack**: Python 3.3 (Assetto Corsa's embedded interpreter), AC Python app API (`ac`, `acsys`), no third-party packages
+- **Purpose**: In-game window on each rig: "Get ready, {name}!" with START / NOT HERE, session countdown, lap tracking and upload
+- **Key Files**:
+  - `racekiosk.py` - `acMain` / `acUpdate` / `acShutdown`, reads car state
+  - `racekiosk_lib/controller.py` - screens, buttons, lap attribution (pure logic)
+  - `racekiosk_lib/lap_tracker.py` - completed laps + validity from per-frame car state (pure logic)
+  - `racekiosk_lib/kiosk_client.py` - background HTTP thread (heartbeat, actions, laps)
+  - `stdlib/`, `stdlib64/` - `_socket.pyd` / `_ctypes.pyd` from Python 3.3.5, missing in AC's interpreter
 
 ## Development Workflows
 
@@ -55,11 +60,10 @@ pnpx shadcn@latest add <component>   # Add shadcn components
 bun --bun run check                   # Prettier + ESLint fix
 ```
 
-### Race Interceptor
+### AC App
 ```bash
-cd interceptor
-python -m pip install watchdog        # Install dependencies
-python main.py     # Run kiosk UI
+python -m unittest discover -s ac-app/tests                       # Tests (no AC needed)
+python ac-app/tools/fake_rig.py --rig 1 --url http://localhost:8080 --key <KIOSK_KEY>   # Simulated rig
 ```
 
 ## Project-Specific Conventions
@@ -84,11 +88,17 @@ python main.py     # Run kiosk UI
 4. **Components**: shadcn/ui components installed to `src/components/` via pnpx command
 5. **Path Aliases**: Use `@/` for imports - configured in `vite.config.ts`
 
-### Race Interceptor Patterns
-1. **File Watching**: `watchdog.Observer` monitors `race.ini`, `RaceIniHandler` extends `FileSystemEventHandler`
-2. **Debouncing**: `last_modified_time` prevents duplicate events (0.5s threshold)
-3. **File Locking**: Retry logic (max 5 attempts, 0.1s delay) handles locked files during CM writes
-4. **Timing**: 0.15s delay after modification event ensures CM finished writing before intercept
+### Backend Kiosk Logic
+1. **Single owner**: All queue/call/session/lap transitions live in `src/api/rig/rigService.ts` and run through `transition()` (serialized by a lock, broadcasts `queue-update` afterwards)
+2. **Background tick**: `rigService.tick()` runs every second (hard stop, no-show timeouts, release calls of offline rigs, call players to free rigs)
+3. **Time in tests**: Use `clock.now()` (`src/common/utils/clock.ts`) instead of `new Date()`; tests control it via `fakeClock()`
+4. **Auth**: Rig and admin routes use `requireKioskKey` (`X-Kiosk-Key` header = `KIOSK_KEY`)
+
+### AC App Patterns
+1. **Python 3.3 only**: no f-strings, `pathlib`, `enum`, `typing` or third-party packages; use `.format()`
+2. **No network on AC's render thread**: `acUpdate` exchanges messages with `KioskClient`'s worker thread via queues
+3. **Testable core**: everything except `ui.py`, `sim_info.py` and `racekiosk.py` has no `ac` imports and is unit tested on desktop Python
+4. **Unique package name**: `racekiosk_lib`, since all AC apps share one interpreter and `sys.modules`
 
 ## Integration Points
 
@@ -97,15 +107,15 @@ python main.py     # Run kiosk UI
 - Frontend uses TanStack Query for API calls (see `/demo/tanstack-query` for pattern)
 - Shared ServiceResponse schema for type-safe responses
 
-### Backend ↔ Race Interceptor
-- **Rig States**: Backend tracks `FREE` (polling every 1s) vs `RACING` (active session)
-- **Queue Assignment**: Backend `/queue` endpoint assigns players to shortest queue
-- **Player Injection**: Interceptor polls backend for next player, displays "Start as {PlayerName}" UI
+### Backend ↔ AC App
+- **Heartbeat**: App POSTs `/rigs/:rigId/heartbeat` every second; the response is the rig status (`FREE` / `CALLING` / `RACING`, called player, session with `endsAt`, last session summary, `serverTime` for clock sync)
+- **Actions**: `/rigs/:rigId/session/start|end`, `/rigs/:rigId/call/skip`, always with the `queueEntryId` / `sessionId` they refer to (409 if stale)
+- **Laps**: `/rigs/:rigId/laps`, idempotent per `clientLapId`; buffered in `outbox.json` while the server is unreachable
+- Full API: `server/backend/src/api/rig/README.md`
 
-### Race Interceptor ↔ Assetto Corsa
-- Monitors `~/Documents/Assetto Corsa/cfg/race.ini` for changes
-- Modifies `DRIVER_NAME=` in `[CAR_0]` section and `NAME=` in `[REMOTE]` section
-- Preserves exact file formatting (whitespace, encoding) during modification
+### AC App ↔ Assetto Corsa
+- Reads `acsys.CS.LapCount`, `LastLap`, `LapInvalidated` and `ac.isCarInPitline(0)` about 10x per second
+- First lap after START, pit lane laps, cut laps and laps after the time limit are reported as invalid
 
 ## Key Files Reference
 
@@ -113,16 +123,19 @@ python main.py     # Run kiosk UI
 |------|---------|
 | `server/backend/src/server.ts` | Express app setup, middleware chain |
 | `server/backend/src/common/models/serviceResponse.ts` | Standard response wrapper |
-| `server/backend/src/api/user/userService.ts` | Example service pattern |
+| `server/backend/src/api/rig/rigService.ts` | Queue, rig calls, sessions, laps, background tick |
+| `server/backend/src/api/leaderboard/leaderboardService.ts` | Best lap per driver per track/car combo |
 | `server/frontend/src/routes/__root.tsx` | Root layout with devtools |
 | `server/frontend/src/main.tsx` | App entry, QueryClient setup |
-| `interceptor/main.py` | File watcher + GUI kiosk |
+| `server/frontend/src/routes/admin.tsx` | Staff page (PIN = `KIOSK_KEY`) |
+| `ac-app/racekiosk/racekiosk.py` | AC app entry point |
 
 ## Testing
 
-- **Backend**: Vitest with `supertest` for API tests (`__tests__/` co-located with features)
+- **Backend**: Vitest with `supertest` for API tests (`__tests__/` co-located with features); DB tests run against `prisma/test.db`, recreated from migrations in `src/test/globalSetup.ts`
 - **Frontend**: Vitest + Testing Library (run with `bun --bun run test`)
 - Both use `.test.ts` suffix and have `globals: true` in Vitest config
+- **AC app**: `unittest` in `ac-app/tests/` (runs on Python 3.3 and current Python; `fake_ac.py` only allows real AC API functions)
 
 ## Tools & Formatting
 

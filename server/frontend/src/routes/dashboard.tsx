@@ -1,7 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Flag, Gauge, Users } from 'lucide-react'
-import { useDashboard } from '../hooks/useQueue'
-import { RigState } from '../lib/api'
+import { Flag, Gauge, Timer, Trophy, Users, WifiOff, Wrench } from 'lucide-react'
+import { useDashboard, useServerNow } from '../hooks/useQueue'
+import { useLeaderboard } from '../hooks/useLeaderboard'
+import {   RigState } from '../lib/api'
+import type {QueueEntry, Rig} from '../lib/api';
+import { formatCountdown, formatEta, formatLapTime, formatTrack } from '@/lib/format'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Footer } from '@/components/Footer'
@@ -11,7 +14,8 @@ export const Route = createFileRoute('/dashboard')({
 })
 
 function DashboardPage() {
-  const { data, isLoading, isError } = useDashboard(1000) // Poll every 1 second
+  const { data, isLoading, isError } = useDashboard()
+  const serverNow = useServerNow(data?.serverTime)
 
   if (isLoading) {
     return (
@@ -46,22 +50,27 @@ function DashboardPage() {
     )
   }
 
+  const rigCount = data.rigs.length
+
   return (
     <div className="h-screen w-screen bg-background text-foreground flex flex-col overflow-hidden">
-      {/* Fully Responsive Grid - Adapts to number of rigs */}
-      <div className={`flex-1 p-6 overflow-y-auto overflow-x-hidden`}>
-        <div className={`h-full grid gap-6 ${
-          data.rigs.length === 1 ? 'grid-cols-1' :
-          data.rigs.length === 2 ? 'grid-cols-2' :
-          data.rigs.length === 3 ? 'grid-cols-3' :
-          data.rigs.length === 4 ? 'grid-cols-2 grid-rows-2' :
-          data.rigs.length === 5 ? 'grid-cols-3 grid-rows-2' :
-          data.rigs.length === 6 ? 'grid-cols-3 grid-rows-2' :
-          'grid-cols-4 auto-rows-fr'
+      <div className="flex-1 flex gap-6 p-6 min-h-0">
+        {/* Rigs - grid adapts to number of rigs */}
+        <div className={`flex-1 min-w-0 grid gap-6 ${
+          rigCount === 1 ? 'grid-cols-1' :
+          rigCount === 2 ? 'grid-cols-2' :
+          rigCount <= 4 ? 'grid-cols-2 auto-rows-fr' :
+          'grid-cols-3 auto-rows-fr'
         }`}>
           {data.rigs.map((rig) => (
-            <RigCard key={rig.id} rig={rig} rigCount={data.rigs.length} />
+            <RigCard key={rig.id} rig={rig} compact={rigCount > 2} serverNow={serverNow} />
           ))}
+        </div>
+
+        {/* Shared queue + today's fastest */}
+        <div className="w-104 shrink-0 flex flex-col gap-6 min-h-0">
+          <QueueCard queue={data.queue} />
+          <FastestCard />
         </div>
       </div>
       <div className="relative z-10">
@@ -72,191 +81,193 @@ function DashboardPage() {
 }
 
 interface RigCardProps {
-  rig: {
-    id: number
-    state: RigState
-    currentPlayer: {
-      id: string
-      name: string
-      joinedAt: string
-    } | null
-    queue: Array<{
-      id: string
-      name: string
-      joinedAt: string
-    }>
-  }
-  rigCount: number
+  rig: Rig
+  compact: boolean
+  serverNow: number
 }
 
-function RigCard({ rig, rigCount }: RigCardProps) {
+function RigCard({ rig, compact, serverNow }: RigCardProps) {
+  const unavailable = !rig.enabled || !rig.online
+  const isCalling = rig.state === RigState.CALLING
   const isRacing = rig.state === RigState.RACING
-  // A rig is waiting for a player when it's FREE and has someone in the queue
-  const isWaitingForPlayer = !isRacing && rig.queue.length > 0
-  
-  // Adjust sizes based on number of rigs for better space utilization
-  const isCompact = rigCount > 4
-  const queueItemsToShow = rigCount <= 2 ? 5 : rigCount <= 4 ? 4 : 3
+
+  const tone = unavailable
+    ? { border: 'border-border opacity-60', dot: 'bg-muted-foreground', badge: 'bg-muted text-muted-foreground' }
+    : isCalling
+      ? { border: 'border-amber-500 shadow-lg', dot: 'bg-amber-500 animate-pulse', badge: 'bg-amber-500 text-white' }
+      : isRacing
+        ? { border: 'border-primary shadow-md', dot: 'bg-primary animate-pulse', badge: 'bg-primary text-primary-foreground' }
+        : { border: 'border-green-500 shadow-md', dot: 'bg-green-500', badge: 'bg-green-500 text-white' }
+
+  const badgeText = !rig.enabled
+    ? 'CLOSED'
+    : !rig.online && !isRacing
+      ? 'OFFLINE'
+      : isCalling
+        ? '⚠️ CALLING'
+        : isRacing
+          ? '🏁 RACING'
+          : '✓ FREE'
 
   return (
-    <Card className={`h-full flex flex-col transition-all duration-500 ${
-      isCompact ? 'border-2' : 'border-4'
-    } ${
-      isWaitingForPlayer
-        ? 'border-amber-500 shadow-lg'
-        : isRacing 
-        ? 'border-primary shadow-md' 
-        : 'border-green-500 shadow-md'
-    }`}>
-      <CardHeader className={isCompact ? 'pb-3' : 'pb-6'}>
-        <div className="flex items-center justify-between">
-          <CardTitle className={`font-bold flex items-center gap-4 text-foreground ${
-            isCompact ? 'text-4xl' : rigCount <= 2 ? 'text-7xl' : 'text-6xl'
-          }`}>
-            <div className={`rounded-full ${
-              isCompact ? 'w-5 h-5' : 'w-8 h-8'
-            } ${
-              isWaitingForPlayer 
-                ? 'bg-amber-500 animate-pulse' 
-                : isRacing 
-                ? 'bg-primary animate-pulse' 
-                : 'bg-green-500'
-            }`}></div>
+    <Card className={`h-full flex flex-col border-4 transition-all duration-500 ${tone.border}`}>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between gap-4">
+          <CardTitle className={`font-bold flex items-center gap-4 ${compact ? 'text-5xl' : 'text-7xl'}`}>
+            <div className={`rounded-full ${compact ? 'w-6 h-6' : 'w-8 h-8'} ${tone.dot}`} />
             RIG {rig.id}
           </CardTitle>
-          <Badge 
-            variant={isRacing ? 'default' : 'secondary'}
-            className={`font-bold ${
-              isCompact ? 'text-lg px-4 py-2' : 'text-3xl px-8 py-4'
-            } ${
-              isWaitingForPlayer
-                ? 'bg-amber-500 text-white border-amber-600'
-                : isRacing 
-                ? 'bg-primary text-primary-foreground' 
-                : 'bg-green-500 text-white border-green-600'
-            }`}
-          >
-            {isWaitingForPlayer ? '⚠️ READY!' : isRacing ? '🏁 RACING' : '✓ FREE'}
+          <Badge className={`font-bold ${compact ? 'text-xl px-5 py-2' : 'text-3xl px-8 py-4'} ${tone.badge}`}>
+            {badgeText}
+          </Badge>
+        </div>
+        {rig.track && rig.car && (
+          <p className="text-muted-foreground text-lg truncate">
+            {formatTrack(rig.track, rig.trackConfig ?? '')}
+          </p>
+        )}
+      </CardHeader>
+
+      <CardContent className="flex-1 flex flex-col justify-center min-h-0">
+        {isRacing && rig.session ? (
+          <RacingContent rig={rig} compact={compact} serverNow={serverNow} />
+        ) : isCalling && rig.called ? (
+          <div className="rounded-lg border-4 border-amber-500 bg-amber-50 dark:bg-amber-950/30 p-6">
+            <p className={`uppercase tracking-wider font-bold text-amber-600 dark:text-amber-400 ${compact ? 'text-xl' : 'text-3xl'}`}>
+              👉 Please come to Rig {rig.id}!
+            </p>
+            <p className={`font-black text-foreground truncate mt-2 ${compact ? 'text-5xl' : 'text-7xl'} animate-pulse`}>
+              {rig.called.driverName}
+            </p>
+            <p className={`text-muted-foreground mt-3 ${compact ? 'text-lg' : 'text-2xl'}`}>
+              Press START on the rig · {formatCountdown(rig.called.timeoutAt - serverNow)} left
+            </p>
+          </div>
+        ) : unavailable ? (
+          <div className="flex flex-col items-center justify-center gap-3 text-muted-foreground">
+            {!rig.enabled ? <Wrench className="w-16 h-16" /> : <WifiOff className="w-16 h-16" />}
+            <p className={compact ? 'text-2xl' : 'text-4xl'}>
+              {!rig.enabled ? 'Temporarily closed' : 'Rig offline'}
+            </p>
+          </div>
+        ) : (
+          <div className="text-center">
+            <p className={`font-bold text-green-600 dark:text-green-400 ${compact ? 'text-3xl' : 'text-5xl'}`}>
+              Ready for the next driver
+            </p>
+            <p className={`text-muted-foreground mt-3 ${compact ? 'text-xl' : 'text-2xl'}`}>
+              Register at the kiosk to race!
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function RacingContent({ rig, compact, serverNow }: RigCardProps) {
+  const session = rig.session!
+  const remaining = session.endsAt - serverNow
+  const timerColor =
+    remaining <= 10_000 ? 'text-destructive animate-pulse' : remaining <= 60_000 ? 'text-amber-500' : 'text-foreground'
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4 min-w-0">
+          <Flag className={`text-primary shrink-0 ${compact ? 'w-8 h-8' : 'w-12 h-12'}`} />
+          <span className={`font-bold truncate ${compact ? 'text-4xl' : 'text-6xl'}`}>{session.driverName}</span>
+        </div>
+        <span className={`font-mono font-black tabular-nums shrink-0 ${compact ? 'text-5xl' : 'text-7xl'} ${timerColor}`}>
+          {formatCountdown(remaining)}
+        </span>
+      </div>
+      <div className={`grid grid-cols-3 gap-3 text-center ${compact ? 'text-xl' : 'text-2xl'}`}>
+        <Stat label="Laps" value={String(session.lapCount)} />
+        <Stat label="Last" value={formatLapTime(session.lastLapMs)} />
+        <Stat label="Best" value={formatLapTime(session.bestLapMs)} highlight />
+      </div>
+    </div>
+  )
+}
+
+function Stat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className="rounded-lg bg-muted p-3">
+      <p className="text-muted-foreground text-sm uppercase tracking-wider font-bold">{label}</p>
+      <p className={`font-mono font-bold ${highlight ? 'text-primary' : 'text-foreground'}`}>{value}</p>
+    </div>
+  )
+}
+
+function QueueCard({ queue }: { queue: Array<QueueEntry> }) {
+  return (
+    <Card className="flex-1 flex flex-col min-h-0 border-2">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-3xl font-bold flex items-center gap-3">
+            <Users className="w-8 h-8" />
+            Up Next
+          </CardTitle>
+          <Badge variant="outline" className="border-amber-400 text-amber-600 dark:text-amber-400 font-bold text-lg px-3 py-1">
+            {queue.length} waiting
           </Badge>
         </div>
       </CardHeader>
-
-      <CardContent className={`flex-1 flex flex-col overflow-hidden ${
-        isCompact ? 'space-y-3' : 'space-y-6'
-      }`}>
-        {/* Current Player - Responsive Size with Attention-Grabbing Style */}
-        <div className={`rounded-lg flex-shrink-0 ${
-          isCompact ? 'p-4 border-2' : 'p-8 border-4'
-        } ${
-          isWaitingForPlayer
-            ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-500'
-            : isRacing 
-            ? 'bg-primary/10 border-primary/50' 
-            : 'bg-muted border-border'
-        }`}>
-          <p className={`uppercase tracking-wider font-bold ${
-            isWaitingForPlayer ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'
-          } ${
-            isCompact ? 'text-base mb-2' : 'text-3xl mb-4'
-          }`}>
-            {isWaitingForPlayer 
-              ? '👉 PLAYER PLEASE COME TO THIS RIG!' 
-              : isRacing 
-              ? '🏎️ Current Driver' 
-              : '⏳ Waiting for Players'}
-          </p>
-          {isRacing && rig.currentPlayer ? (
-            <div className="flex items-center gap-4">
-              <Flag className={`text-primary flex-shrink-0 ${
-                isCompact ? 'w-6 h-6' : 'w-12 h-12'
-              }`} />
-              <span className={`font-bold text-foreground truncate ${
-                isCompact ? 'text-2xl' : rigCount <= 2 ? 'text-6xl' : 'text-5xl'
-              }`}>{rig.currentPlayer.name}</span>
-            </div>
-          ) : isWaitingForPlayer && rig.queue[0] ? (
-            <div className="flex items-center gap-4">
-              <Flag className={`text-amber-500 animate-bounce flex-shrink-0 ${
-                isCompact ? 'w-6 h-6' : 'w-12 h-12'
-              }`} />
-              <span className={`font-bold text-foreground truncate ${
-                isCompact ? 'text-2xl' : rigCount <= 2 ? 'text-6xl' : 'text-5xl'
-              }`}>{rig.queue[0].name}</span>
-            </div>
-          ) : (
-            <p className={`text-muted-foreground italic ${
-              isCompact ? 'text-xl' : 'text-4xl'
-            }`}>No players in queue</p>
-          )}
-        </div>
-
-        {/* Queue - Responsive and Scrollable if needed */}
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className={`flex items-center justify-between flex-shrink-0 ${
-            isCompact ? 'mb-2' : 'mb-4'
-          }`}>
-            <p className={`text-muted-foreground uppercase tracking-wider font-bold flex items-center gap-2 ${
-              isCompact ? 'text-base' : 'text-2xl'
-            }`}>
-              <Users className={isCompact ? 'w-4 h-4' : 'w-6 h-6'} />
-              {isWaitingForPlayer ? 'Coming Next' : 'Next Up'}
-            </p>
-            <Badge variant="outline" className={`border-amber-400 text-amber-600 dark:text-amber-400 font-bold ${
-              isCompact ? 'text-sm px-3 py-1' : 'text-xl px-4 py-2'
-            }`}>
-              {isWaitingForPlayer ? rig.queue.length - 1 : rig.queue.length} waiting
-            </Badge>
+      <CardContent className="flex-1 overflow-y-auto space-y-3 min-h-0">
+        {queue.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-center bg-muted rounded-lg border-4 border-dashed border-border py-10">
+            <p className="text-2xl font-bold text-muted-foreground">Queue Empty</p>
+            <p className="text-lg text-muted-foreground/60 mt-2">Register now - no waiting!</p>
           </div>
-          
-          {rig.queue.length > 0 ? (
-            <div className={`flex-1 overflow-y-auto ${
-              isCompact ? 'space-y-2' : 'space-y-3'
-            }`}>
-              {/* If waiting for player, show queue starting from position 2 (skip first), otherwise show all */}
-              {rig.queue.slice(isWaitingForPlayer ? 1 : 0, isWaitingForPlayer ? queueItemsToShow + 1 : queueItemsToShow).map((player, index) => {
-                const displayPosition = isWaitingForPlayer ? index + 2 : index + 1;
-                return (
-                  <div
-                    key={player.id}
-                    className={`flex items-center gap-3 bg-muted rounded-lg border-2 border-border hover:border-primary/50 transition-all ${
-                      isCompact ? 'p-2' : 'p-4'
-                    }`}
-                  >
-                    <Badge 
-                      variant="outline" 
-                      className={`border-amber-400 text-amber-600 dark:text-amber-400 font-bold justify-center flex-shrink-0 ${
-                        isCompact ? 'text-base px-2 py-1 min-w-[40px]' : 'text-2xl px-4 py-2 min-w-[70px]'
-                      }`}
-                    >
-                      #{displayPosition}
-                    </Badge>
-                    <span className={`text-foreground font-medium truncate ${
-                      isCompact ? 'text-lg' : rigCount <= 2 ? 'text-3xl' : 'text-2xl'
-                    }`}>{player.name}</span>
-                  </div>
-                );
-              })}
-              {rig.queue.length > (isWaitingForPlayer ? queueItemsToShow + 1 : queueItemsToShow) && (
-                <p className={`text-muted-foreground text-center pt-2 font-semibold ${
-                  isCompact ? 'text-sm' : 'text-xl'
-                }`}>
-                  + {rig.queue.length - (isWaitingForPlayer ? queueItemsToShow + 1 : queueItemsToShow)} more in queue
-                </p>
-              )}
+        ) : (
+          queue.map((entry) => (
+            <div key={entry.id} className="flex items-center gap-3 bg-muted rounded-lg border-2 border-border p-3">
+              <Badge variant="outline" className="border-amber-400 text-amber-600 dark:text-amber-400 font-bold text-xl min-w-14 justify-center">
+                #{entry.position}
+              </Badge>
+              <span className="text-2xl font-medium truncate flex-1">{entry.driverName}</span>
+              <span className="text-muted-foreground text-lg flex items-center gap-1 shrink-0">
+                <Timer className="w-4 h-4" />
+                {formatEta(entry.etaSec)}
+              </span>
             </div>
-          ) : (
-            <div className={`text-center bg-muted rounded-lg border-4 border-dashed border-border flex-1 flex flex-col items-center justify-center ${
-              isCompact ? 'py-6' : 'py-12'
-            }`}>
-              <p className={`text-muted-foreground font-bold ${
-                isCompact ? 'text-xl' : 'text-3xl'
-              }`}>Queue Empty</p>
-              <p className={`text-muted-foreground/60 mt-2 ${
-                isCompact ? 'text-base' : 'text-xl'
-              }`}>Ready for new players!</p>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function FastestCard() {
+  const { data } = useLeaderboard(null, 'today')
+  const entries = data?.entries.slice(0, 5) ?? []
+
+  return (
+    <Card className="shrink-0 border-2">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-2xl font-bold flex items-center gap-3">
+          <Trophy className="w-7 h-7 text-amber-500" />
+          Today's Fastest
+        </CardTitle>
+        {data?.combo && (
+          <p className="text-muted-foreground truncate">{formatTrack(data.combo.track, data.combo.trackConfig)}</p>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {entries.length === 0 ? (
+          <p className="text-muted-foreground text-lg">No laps yet today - be the first!</p>
+        ) : (
+          entries.map((entry) => (
+            <div key={entry.driverId} className="flex items-center gap-3 text-xl">
+              <span className={`font-bold w-8 ${entry.rank === 1 ? 'text-yellow-500' : entry.rank === 2 ? 'text-gray-400' : entry.rank === 3 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                {entry.rank}
+              </span>
+              <span className="flex-1 truncate">{entry.driverName}</span>
+              <span className="font-mono text-primary">{formatLapTime(entry.lapTimeMs)}</span>
             </div>
-          )}
-        </div>
+          ))
+        )}
       </CardContent>
     </Card>
   )
