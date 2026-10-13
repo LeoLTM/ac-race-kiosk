@@ -1,28 +1,17 @@
 import { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import express, { type Router } from "express";
-import { z } from "zod";
+import { DashboardViewSchema, RigViewSchema } from "@/api/rig/rigModel";
 import { createApiResponse } from "@/api-docs/openAPIResponseBuilders";
 import { validateRequest } from "@/common/utils/httpHandlers";
 import { queueController } from "./queueController";
-import {
-	CompleteSessionSchema,
-	DashboardResponseSchema,
-	GetNextPlayerSchema,
-	JoinQueueResponseSchema,
-	JoinQueueSchema,
-	NextPlayerResponseSchema,
-	RigSchema,
-	SkipPlayerSchema,
-	UpdateRigStateSchema,
-} from "./queueModel";
+import { JoinQueueResponseSchema, JoinQueueSchema } from "./queueModel";
 
 export const queueRegistry = new OpenAPIRegistry();
 export const queueRouter: Router = express.Router();
 
-// Register schemas
-queueRegistry.register("Rig", RigSchema);
+queueRegistry.register("Rig", RigViewSchema);
 
-// POST /queue - Join queue
+// POST /queue - Join the shared queue
 queueRegistry.registerPath({
 	method: "post",
 	path: "/queue",
@@ -41,83 +30,12 @@ queueRegistry.registerPath({
 
 queueRouter.post("/", validateRequest(JoinQueueSchema), queueController.joinQueue);
 
-// GET /queue/next/:rigId - Get next player for rig
+// GET /queue - Rigs and waiting players for the dashboard (also pushed as Socket.IO "queue-update")
 queueRegistry.registerPath({
 	method: "get",
-	path: "/queue/next/{rigId}",
+	path: "/queue",
 	tags: ["Queue"],
-	request: {
-		params: GetNextPlayerSchema.shape.params,
-	},
-	responses: createApiResponse(NextPlayerResponseSchema, "Next player retrieved"),
-});
-
-queueRouter.get("/next/:rigId", validateRequest(GetNextPlayerSchema), queueController.getNextPlayer);
-
-// POST /queue/complete/:rigId - Complete session
-queueRegistry.registerPath({
-	method: "post",
-	path: "/queue/complete/{rigId}",
-	tags: ["Queue"],
-	request: {
-		params: CompleteSessionSchema.shape.params,
-	},
-	responses: createApiResponse(RigSchema, "Session completed successfully"),
-});
-
-queueRouter.post(
-	"/complete/:rigId",
-	validateRequest(CompleteSessionSchema),
-	queueController.completeSession,
-);
-
-// POST /queue/skip/:rigId - Skip current player in queue
-queueRegistry.registerPath({
-	method: "post",
-	path: "/queue/skip/{rigId}",
-	tags: ["Queue"],
-	request: {
-		params: SkipPlayerSchema.shape.params,
-	},
-	responses: createApiResponse(RigSchema, "Player skipped successfully"),
-});
-
-queueRouter.post(
-	"/skip/:rigId",
-	validateRequest(SkipPlayerSchema),
-	queueController.skipPlayer,
-);
-
-// POST /rigs/:rigId/state - Update rig state
-queueRegistry.registerPath({
-	method: "post",
-	path: "/rigs/{rigId}/state",
-	tags: ["Queue"],
-	request: {
-		params: UpdateRigStateSchema.shape.params,
-		body: {
-			content: {
-				"application/json": {
-					schema: UpdateRigStateSchema.shape.body,
-				},
-			},
-		},
-	},
-	responses: createApiResponse(RigSchema, "Rig state updated successfully"),
-});
-
-queueRouter.post(
-	"/:rigId/state",
-	validateRequest(UpdateRigStateSchema),
-	queueController.updateRigState,
-);
-
-// GET /dashboard - Get all rig states
-queueRegistry.registerPath({
-	method: "get",
-	path: "/dashboard",
-	tags: ["Queue"],
-	responses: createApiResponse(DashboardResponseSchema, "Dashboard data retrieved"),
+	responses: createApiResponse(DashboardViewSchema, "Dashboard data retrieved"),
 });
 
 queueRouter.get("/", queueController.getDashboard);
