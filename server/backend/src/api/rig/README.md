@@ -1,293 +1,105 @@
-# Queue API Documentation
+# Queue, Rig & Lap API
 
-## Overview
+The backend owns all kiosk state:
 
-The Queue API manages racing sessions across multiple rigs. It provides endpoints for players to join queues, rigs to retrieve next players, and dashboard updates via Socket.io.
+- the shared queue,
+- which player is called to which rig,
+- driving sessions with their hard stop,
+- laps.
 
-## Architecture
+Everything is persisted in SQLite, so a backend restart doesn't lose the queue.
 
-### Data Models
+All state changes go through `rigService`. It serializes them with a lock, so concurrent clicks from a rig and staff can't race, and broadcasts the new dashboard over Socket.IO afterwards.
 
-#### Player
-```typescript
-{
-  id: string;           // Auto-generated unique ID
-  name: string;         // Player name (1-50 chars)
-  joinedAt: Date;       // Timestamp when joined
-}
+## State machine
+
+```text
+Queue entry:  WAITING ──called to a free rig──▶ CALLED ──START──▶ STARTED
+                 ▲                                │
+                 └── first skip / no-show ────────┤  (moves back SKIP_REQUEUE_POSITIONS places)
+                     rig went offline / closed    │  (back at its old position, not a skip)
+                                                  └── second skip / no-show ──▶ NO_SHOW
+              staff remove ──▶ REMOVED
+
+Rig state (derived):  FREE ──▶ CALLING (has a CALLED entry) ──▶ RACING (has an active session) ──▶ FREE
 ```
 
-#### Rig
-```typescript
-{
-  id: string;                    // "rig-1", "rig-2", etc.
-  state: "FREE" | "RACING";      // Current rig state
-  currentPlayer: Player | null;  // Active player (when RACING)
-  queue: Player[];               // Waiting players
-}
-```
+Every second, `rigService.tick()` does four things:
 
-### State Transitions
+1. Ends sessions whose `endsAt` has passed (`TIME_UP`, the hard stop).
+2. Returns calls to rigs that are offline or closed back to the queue.
+3. Treats calls older than `CALL_TIMEOUT_SEC` as a skip.
+4. Calls the head of the queue to every free, enabled, online rig, in rig id order.
 
-```
-FREE → RACING:  POST /rigs/:rigId/state { state: "RACING", playerId: "..." }
-RACING → FREE:  POST /queue/complete/:rigId
-```
+A rig is **online** while its AC app keeps sending heartbeats. It goes offline after `RIG_OFFLINE_AFTER_SEC` without one.
 
-## REST API Endpoints
+## Endpoints
 
-### Join Queue
-**POST** `/queue`
+All timestamps are epoch milliseconds. Responses use the usual `ServiceResponse` envelope (`success`, `message`, `responseObject`, `statusCode`). Swagger UI is served at `/`.
 
-Adds player to the rig with shortest queue.
+### Public (kiosk tablet, TV dashboard)
 
-**Request:**
-```json
-{
-  "playerName": "John Doe"
-}
-```
+| Method | Path | |
+| --- | --- | --- |
+| POST | `/queue` `{ playerName }` | Join the queue. Returns `{ queueEntryId, driverName, position, etaSec, calledRigId }`. Returns 409 if the name is already queued or racing (case-insensitive). |
+| GET | `/queue` | Dashboard: `{ serverTime, rigs[], queue[], config }` |
+| GET | `/leaderboard?track&trackConfig&car&period=today\|all` | Best valid lap per driver. Without a combo, uses the one loaded on the online rigs. |
+| GET | `/leaderboard/combos` | Track/car combos that have laps, plus the current one |
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Player joined queue",
-  "responseObject": {
-    "playerId": "player-1234567890-abc123",
-    "rigId": "rig-1",
-    "queuePosition": 3
-  },
-  "statusCode": 200
-}
-```
+### Rig app (`X-Kiosk-Key` header)
 
----
+| Method | Path | |
+| --- | --- | --- |
+| POST | `/rigs/:rigId/heartbeat` `{ appVersion, track, trackConfig, car }` | Polled every second. Returns the rig status. |
+| POST | `/rigs/:rigId/session/start` `{ queueEntryId }` | The called player pressed START. Returns 409 if they aren't called here (anymore). |
+| POST | `/rigs/:rigId/session/end` `{ sessionId }` | The driver ended early |
+| POST | `/rigs/:rigId/call/skip` `{ queueEntryId }` | The called player isn't there |
+| POST | `/rigs/:rigId/laps` `{ clientLapId, sessionId, lapTimeMs, valid, invalidReason?, sectorsMs?, track, trackConfig, car, completedAt }` | Report a lap. Idempotent per `clientLapId`. Laps completed after the session's end are stored as invalid (`AFTER_TIME`). Returns `{ isPersonalBest, rankToday, rankAllTime, ... }`. |
 
-### Get Next Player
-**GET** `/queue/next/:rigId`
+Heartbeat and the session/skip actions return the **rig status**: the rig's dashboard entry plus the fields below.
 
-Returns next player in queue for specified rig (used by race interceptor polling).
+| Field | |
+| --- | --- |
+| `serverTime` | For clock sync |
+| `lastSession` | Summary of the session that just ended, with best lap and today's rank |
+| `queueLength` | |
+| `nextDriverName` | |
+| `config` | |
 
-**Response (player available):**
-```json
-{
-  "success": true,
-  "message": "Next player retrieved",
-  "responseObject": {
-    "player": {
-      "id": "player-1234567890-abc123",
-      "name": "John Doe",
-      "joinedAt": "2025-11-24T10:30:00.000Z"
-    }
-  },
-  "statusCode": 200
-}
-```
+### Staff (`X-Kiosk-Key` header)
 
-**Response (no player):**
-```json
-{
-  "success": true,
-  "message": "Next player retrieved",
-  "responseObject": {
-    "player": null
-  },
-  "statusCode": 200
-}
-```
+| Method | Path | |
+| --- | --- | --- |
+| GET | `/admin/overview` | Dashboard plus the 50 most recent laps |
+| POST | `/admin/rigs/:rigId/enable` · `/disable` | Close or reopen a rig (maintenance) |
+| POST | `/admin/rigs/:rigId/start` `{ queueEntryId }` | Start the called player |
+| POST | `/admin/rigs/:rigId/end` `{ sessionId }` | End a session |
+| POST | `/admin/rigs/:rigId/extend` `{ sessionId, seconds }` | Add (or remove, with a negative value) session time |
+| POST | `/admin/rigs/:rigId/skip` `{ queueEntryId }` | Skip the called player |
+| POST | `/admin/queue/:entryId/move` `{ direction: up\|down\|top }` | Reorder the queue |
+| POST | `/admin/queue/:entryId/call` `{ rigId }` | Call this player to a rig. Whoever was called there goes back to their spot. |
+| DELETE | `/admin/queue/:entryId` | Remove from the queue |
+| POST | `/admin/laps/:lapId/invalidate` | Take a lap off the leaderboard |
+| DELETE | `/admin/drivers/:driverId` | Delete a driver with all their laps |
 
----
+## Socket.IO events (server → frontend)
 
-### Update Rig State
-**POST** `/rigs/:rigId/state`
+| Event | Payload |
+| --- | --- |
+| `queue-update` | Same as `GET /queue`. Sent after every state change. |
+| `leaderboard-update` | `{}`. A valid lap was added or a lap was removed; refetch leaderboards. |
 
-Transitions rig between FREE and RACING states.
+## Configuration (`.env`)
 
-**Request (start session):**
-```json
-{
-  "state": "RACING",
-  "playerId": "player-1234567890-abc123"
-}
-```
-
-**Request (end session):**
-```json
-{
-  "state": "FREE"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Rig state updated",
-  "responseObject": {
-    "rig": {
-      "id": "rig-1",
-      "state": "RACING",
-      "currentPlayer": { ... },
-      "queue": [ ... ]
-    }
-  },
-  "statusCode": 200
-}
-```
-
----
-
-### Complete Session
-**POST** `/queue/complete/:rigId`
-
-Removes current player and sets rig to FREE state.
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Session completed",
-  "responseObject": {
-    "rig": {
-      "id": "rig-1",
-      "state": "FREE",
-      "currentPlayer": null,
-      "queue": [ ... ]
-    }
-  },
-  "statusCode": 200
-}
-```
-
----
-
-### Get Dashboard
-**GET** `/dashboard`
-
-Returns all rig states for dashboard display.
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Dashboard data retrieved",
-  "responseObject": {
-    "rigs": [
-      {
-        "id": "rig-1",
-        "state": "RACING",
-        "currentPlayer": { "name": "John Doe", ... },
-        "queue": [
-          { "name": "Player 2", ... },
-          { "name": "Player 3", ... }
-        ]
-      },
-      {
-        "id": "rig-2",
-        "state": "FREE",
-        "currentPlayer": null,
-        "queue": [ ... ]
-      }
-    ]
-  },
-  "statusCode": 200
-}
-```
-
-## Socket.io Events
-
-### Client → Server
-None (client only listens)
-
-### Server → Client
-
-#### `queue-update`
-Emitted whenever queue state changes (player joins, session starts/ends).
-
-**Payload:**
-```json
-{
-  "rigs": [
-    {
-      "id": "rig-1",
-      "state": "RACING",
-      "currentPlayer": { ... },
-      "queue": [ ... ]
-    }
-  ]
-}
-```
-
-## User Flow Example
-
-### 1. Player Joins Queue
-```bash
-# Player visits web UI and enters name
-POST /queue
-{ "playerName": "John Doe" }
-
-# Response indicates assigned rig
-# Socket.io emits "queue-update" to all connected clients
-```
-
-### 2. Race Interceptor Polls for Next Player
-```bash
-# Interceptor on rig-1 polls every 1 second (when FREE)
-GET /queue/next/rig-1
-
-# Returns next player or null
-```
-
-### 3. Player Starts Session
-```bash
-# Interceptor displays "Start as John Doe" button
-# User clicks "Start", watchdog monitors race.ini
-
-# When Content Manager writes race.ini, interceptor:
-# 1. Overrides player name
-# 2. Transitions rig to RACING
-
-POST /rigs/rig-1/state
-{ "state": "RACING", "playerId": "player-..." }
-
-# Socket.io emits "queue-update"
-```
-
-### 4. Session Completion
-```bash
-# Player clicks "Finish" button in interceptor
-
-POST /queue/complete/rig-1
-
-# Rig returns to FREE, starts polling again
-# Socket.io emits "queue-update"
-```
-
-## Configuration
-
-Default configuration initializes **2 rigs** (`rig-1`, `rig-2`). To modify:
-
-Edit `queueRepository.ts`:
-```typescript
-constructor() {
-  this.initializeRigs(4); // Change to desired number
-}
-```
+| Variable | Default | |
+| --- | --- | --- |
+| `NUMBER_OF_RIGS` | 2 | Rigs `1..N` |
+| `SESSION_DURATION_MIN` | 10 | Session length (hard stop) |
+| `CALL_TIMEOUT_SEC` | 120 | Time a called player has to press START |
+| `SKIP_REQUEUE_POSITIONS` | 3 | Places a skipped player moves back; 0 = drop immediately |
+| `RIG_OFFLINE_AFTER_SEC` | 10 | Heartbeat timeout |
+| `KIOSK_KEY` | empty | Shared secret for rig apps and the staff page. Empty disables the check. |
 
 ## Testing
 
-```bash
-# Run tests
-cd control_server/backend
-bun run test
-
-# Run specific test file
-bun run test queueService.test.ts
-```
-
-## OpenAPI Documentation
-
-Interactive API documentation available at:
-- **Swagger UI**: `http://localhost:PORT/swagger`
-- **OpenAPI JSON**: `http://localhost:PORT/swagger.json`
+`bun run test` runs the service and router tests against `prisma/test.db`, which is recreated from the migrations on every run. Tests move time with `fakeClock()` from `src/test/helpers.ts`.
