@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { Flag, Gauge, UserPlus, Trophy } from 'lucide-react'
+import { Link, createFileRoute } from '@tanstack/react-router'
+import { Flag, Gauge, ShieldCheck, Trophy, UserPlus } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export const Route = createFileRoute('/')({
@@ -65,7 +65,7 @@ function App() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-4 text-foreground text-3xl">
                   <Trophy className="w-12 h-12 text-amber-500" />
-                  Lap Times
+                  Leaderboard
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -75,6 +75,16 @@ function App() {
                 </CardDescription>
               </CardContent>
             </Card>
+          </Link>
+        </div>
+
+        <div className="text-center">
+          <Link
+            to="/admin"
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            Staff
           </Link>
         </div>
       </div>

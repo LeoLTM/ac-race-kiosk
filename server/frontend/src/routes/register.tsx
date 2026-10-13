@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState, useEffect, useRef } from 'react'
-import { Flag, User, CheckCircle, Loader, AlertCircle } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { AlertCircle, CheckCircle, Flag, Loader, User } from 'lucide-react'
 import { useJoinQueue } from '../hooks/useQueue'
+import { formatEta } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -75,39 +76,44 @@ function RegisterPage() {
                 You're In!
               </h1>
               <p className="text-lg md:text-xl text-muted-foreground mb-6 leading-relaxed">
-                Welcome to the track, <span className="font-bold text-foreground">{playerName}</span>
+                Welcome to the track, <span className="font-bold text-foreground">{joinQueueMutation.data.driverName}</span>
               </p>
 
               <div className="bg-muted rounded-xl p-4 md:p-6 mb-6 border border-border">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 text-center">
-                  <div className="py-4 px-4 rounded-lg bg-card border border-border hover:scale-105 transition-all duration-300">
-                    <p className="text-muted-foreground text-base md:text-lg mb-2 font-medium uppercase tracking-wider">Your Rig</p>
+                {joinQueueMutation.data.calledRigId !== null ? (
+                  <div className="py-4 px-4 rounded-lg bg-card border border-border">
+                    <p className="text-muted-foreground text-base md:text-lg mb-2 font-medium uppercase tracking-wider">Go to</p>
                     <p className="text-5xl md:text-6xl font-black text-primary">
-                      #{joinQueueMutation.data.rigId}
+                      Rig #{joinQueueMutation.data.calledRigId}
                     </p>
                   </div>
-                  <div className="py-4 px-4 rounded-lg bg-card border border-border hover:scale-105 transition-all duration-300">
-                    <p className="text-muted-foreground text-base md:text-lg mb-2 font-medium uppercase tracking-wider">Position</p>
-                    <p className="text-5xl md:text-6xl font-black text-amber-500">
-                      {joinQueueMutation.data.queuePosition === 0 
-                        ? 'Next!' 
-                        : `#${joinQueueMutation.data.queuePosition}`}
-                    </p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 text-center">
+                    <div className="py-4 px-4 rounded-lg bg-card border border-border hover:scale-105 transition-all duration-300">
+                      <p className="text-muted-foreground text-base md:text-lg mb-2 font-medium uppercase tracking-wider">Position</p>
+                      <p className="text-5xl md:text-6xl font-black text-amber-500">
+                        #{joinQueueMutation.data.position}
+                      </p>
+                    </div>
+                    <div className="py-4 px-4 rounded-lg bg-card border border-border hover:scale-105 transition-all duration-300">
+                      <p className="text-muted-foreground text-base md:text-lg mb-2 font-medium uppercase tracking-wider">Estimated Wait</p>
+                      <p className="text-5xl md:text-6xl font-black text-primary">
+                        {formatEta(joinQueueMutation.data.etaSec)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="py-4 px-4 rounded-lg bg-card border border-border hover:scale-105 transition-all duration-300">
-                    <p className="text-muted-foreground text-base md:text-lg mb-2 font-medium uppercase tracking-wider">Player ID</p>
-                    <p className="text-sm md:text-base font-mono text-muted-foreground mt-2 break-all leading-relaxed">
-                      {joinQueueMutation.data.playerId}
-                    </p>
-                  </div>
-                </div>
+                )}
               </div>
 
               <Alert className="bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 border mb-6 p-4 md:p-5 rounded-lg">
                 <AlertCircle className="h-5 w-5 md:h-6 md:w-6 text-amber-500" />
                 <div className="text-amber-800 dark:text-amber-200 text-sm md:text-base leading-relaxed">
                   <strong className="text-base md:text-lg font-bold block mb-1">Next Steps</strong>
-                  <p>Head to <span className="font-bold">Rig #{joinQueueMutation.data.rigId}</span> and wait for your turn. The rig operator will call you when it's time to race!</p>
+                  {joinQueueMutation.data.calledRigId !== null ? (
+                    <p>Rig <span className="font-bold">#{joinQueueMutation.data.calledRigId}</span> is ready for you. Take a seat and press <span className="font-bold">START</span> on the screen!</p>
+                  ) : (
+                    <p>Keep an eye on the screen - you'll be called to the next free rig. Don't wander off too far: if you miss your call, you move back in line.</p>
+                  )}
                 </div>
               </Alert>
 
