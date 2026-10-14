@@ -1,11 +1,10 @@
 import { OpenAPIRegistry, OpenApiGeneratorV3 } from "@asteasolutions/zod-to-openapi";
-
+import { adminRegistry } from "@/api/admin/adminRouter";
 import { healthCheckRegistry } from "@/api/healthCheck/healthCheckRouter";
-import { userRegistry } from "@/api/user/userRouter";
+import { leaderboardRegistry } from "@/api/leaderboard/leaderboardRouter";
 import { queueRegistry } from "@/api/queue/queueRouter";
 import { rigRegistry } from "@/api/rig/rigRouter";
-import { adminRegistry } from "@/api/admin/adminRouter";
-import { leaderboardRegistry } from "@/api/leaderboard/leaderboardRouter";
+import { userRegistry } from "@/api/user/userRouter";
 
 export type OpenAPIDocument = ReturnType<OpenApiGeneratorV3["generateDocument"]>;
 
@@ -27,9 +26,11 @@ export function generateOpenAPIDocument(): OpenAPIDocument {
 			title: "Assetto Corsa Race Kiosk API",
 			description: "Queue-based racing session manager for Assetto Corsa across multiple racing rigs",
 		},
+		// Paths below are relative to the /api prefix the routers are mounted under
+		servers: [{ url: "/api" }],
 		externalDocs: {
 			description: "View the raw OpenAPI Specification in JSON format",
-			url: "/swagger.json",
+			url: "/api/docs/swagger.json",
 		},
 	});
 }

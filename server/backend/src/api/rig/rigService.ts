@@ -1,10 +1,10 @@
 import { StatusCodes } from "http-status-codes";
 import { pino } from "pino";
-import type { Server as SocketIOServer } from "socket.io";
 import type { AdminOverview, MoveDirection } from "@/api/admin/adminModel";
 import { leaderboardService } from "@/api/leaderboard/leaderboardService";
 import type { JoinQueueResponse } from "@/api/queue/queueModel";
 import { ServiceResponse } from "@/common/models/serviceResponse";
+import type { SocketIOServer } from "@/common/models/socketServer";
 import { clock } from "@/common/utils/clock";
 import { env } from "@/common/utils/envConfig";
 import { createLock } from "@/common/utils/lock";

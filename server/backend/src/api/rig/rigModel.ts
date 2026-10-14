@@ -1,4 +1,5 @@
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import type * as Api from "@racekiosk/shared";
 import { z } from "zod";
 
 extendZodWithOpenApi(z);
@@ -7,15 +8,22 @@ extendZodWithOpenApi(z);
 export const QueueStatusSchema = z.enum(["WAITING", "CALLED", "STARTED", "REMOVED", "NO_SHOW"]);
 export const QueueStatus = QueueStatusSchema.enum;
 
-export const RigStateSchema = z.enum(["FREE", "CALLING", "RACING"]);
+export const RigStateSchema = z.enum(["FREE", "CALLING", "RACING"]) satisfies z.ZodType<Api.RigState>;
 export const RigState = RigStateSchema.enum;
 export type RigState = z.infer<typeof RigStateSchema>;
 
-export const EndReasonSchema = z.enum(["TIME_UP", "DRIVER", "STAFF"]);
+export const EndReasonSchema = z.enum(["TIME_UP", "DRIVER", "STAFF"]) satisfies z.ZodType<Api.EndReason>;
 export const EndReason = EndReasonSchema.enum;
 export type EndReason = z.infer<typeof EndReasonSchema>;
 
-export const InvalidReasonSchema = z.enum(["CUT", "PIT", "OUT_LAP", "TOO_SHORT", "AFTER_TIME", "STAFF"]);
+export const InvalidReasonSchema = z.enum([
+	"CUT",
+	"PIT",
+	"OUT_LAP",
+	"TOO_SHORT",
+	"AFTER_TIME",
+	"STAFF",
+]) satisfies z.ZodType<Api.InvalidReason>;
 export const InvalidReason = InvalidReasonSchema.enum;
 
 // ---------------------------------------------------------------------------
@@ -34,14 +42,14 @@ export const SessionViewSchema = z.object({
 	validLapCount: z.number().int(),
 	bestLapMs: z.number().int().nullable(),
 	lastLapMs: z.number().int().nullable(),
-});
+}) satisfies z.ZodType<Api.Session>;
 
 export const CallViewSchema = z.object({
 	queueEntryId: z.string(),
 	driverName: z.string().openapi({ example: "Max" }),
 	calledAt: epochMs,
 	timeoutAt: epochMs,
-});
+}) satisfies z.ZodType<Api.Call>;
 
 export const RigViewSchema = z.object({
 	id: z.number().int().positive().openapi({ example: 1 }),
@@ -55,7 +63,7 @@ export const RigViewSchema = z.object({
 	state: RigStateSchema,
 	session: SessionViewSchema.nullable(),
 	called: CallViewSchema.nullable(),
-});
+}) satisfies z.ZodType<Api.Rig>;
 export type RigView = z.infer<typeof RigViewSchema>;
 
 export const QueueEntryViewSchema = z.object({
@@ -65,20 +73,20 @@ export const QueueEntryViewSchema = z.object({
 	skipCount: z.number().int(),
 	joinedAt: epochMs,
 	etaSec: z.number().int().nullable().openapi({ description: "Estimated wait; null when no rig is online" }),
-});
+}) satisfies z.ZodType<Api.QueueEntry>;
 export type QueueEntryView = z.infer<typeof QueueEntryViewSchema>;
 
 export const KioskConfigViewSchema = z.object({
 	sessionDurationSec: z.number().int(),
 	callTimeoutSec: z.number().int(),
-});
+}) satisfies z.ZodType<Api.KioskConfig>;
 
 export const DashboardViewSchema = z.object({
 	serverTime: epochMs,
 	rigs: z.array(RigViewSchema),
 	queue: z.array(QueueEntryViewSchema),
 	config: KioskConfigViewSchema,
-});
+}) satisfies z.ZodType<Api.DashboardResponse>;
 export type DashboardView = z.infer<typeof DashboardViewSchema>;
 
 export const LastSessionViewSchema = z.object({

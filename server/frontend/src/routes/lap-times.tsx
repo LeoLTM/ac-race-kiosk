@@ -1,15 +1,15 @@
-import { useState } from 'react'
-import { Link, createFileRoute } from '@tanstack/react-router'
-import { ArrowLeft, Trophy } from 'lucide-react'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import {
   createColumnHelper,
   flexRender,
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import type { Combo, LeaderboardEntry, LeaderboardPeriod } from '@/lib/api'
-import { useCombos, useLeaderboard } from '@/hooks/useLeaderboard'
+import { ArrowLeft, Trophy } from 'lucide-react'
+import { useState } from 'react'
 import { ConnectionIndicator } from '@/components/ConnectionIndicator'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
   TableBody,
@@ -18,8 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
+import { useCombos, useLeaderboard } from '@/hooks/useLeaderboard'
+import type { Combo, LeaderboardEntry, LeaderboardPeriod } from '@/lib/api'
 import { comboKey, formatCombo, formatLapTime } from '@/lib/format'
 
 export const Route = createFileRoute('/lap-times')({
@@ -174,6 +174,7 @@ function LapTimesPage() {
           {isLoading ? (
             <div className="p-6 space-y-4">
               {Array.from({ length: 5 }).map((_, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: static loading placeholders
                 <div key={i} className="flex gap-4">
                   <Skeleton className="h-8 w-12 bg-muted" />
                   <Skeleton className="h-8 w-48 bg-muted" />

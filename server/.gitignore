@@ -1,0 +1,18 @@
+node_modules
+dist
+release
+coverage
+*.log
+*.local
+.env
+.DS_Store
+
+# SQLite databases (dev.db, test.db and their WAL files)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Generated
+backend/src/generated/
+frontend/.tanstack/

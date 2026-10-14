@@ -1,7 +1,9 @@
+import path from "node:path";
 import dotenv from "dotenv";
 import { z } from "zod";
+import { APP_DIR, isPackaged } from "@/paths";
 
-dotenv.config();
+dotenv.config({ path: path.join(APP_DIR, ".env") });
 
 const envSchema = z.object({
 	NODE_ENV: z.enum(["development", "production", "test"]).default("production"),
@@ -18,7 +20,8 @@ const envSchema = z.object({
 
 	NUMBER_OF_RIGS: z.coerce.number().int().positive().default(2),
 
-	DATABASE_URL: z.string().default("file:./prisma/dev.db"),
+	// The packaged server keeps its database next to the executable; dev uses prisma/dev.db
+	DATABASE_URL: z.string().default(isPackaged ? `file:${path.join(APP_DIR, "racekiosk.db")}` : "file:./prisma/dev.db"),
 
 	// Length of one driving session; sessions are hard-stopped when it runs out
 	SESSION_DURATION_MIN: z.coerce.number().positive().default(10),

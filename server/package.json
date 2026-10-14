@@ -1,0 +1,35 @@
+{
+	"name": "racekiosk-server",
+	"private": true,
+	"description": "Control server for the Assetto Corsa race kiosk: backend, frontend and shared API types.",
+	"author": "Leonard L & Michael D",
+	"repository": "LeoLTM/acc-race-kiosk",
+	"license": "MIT",
+	"workspaces": [
+		"backend",
+		"frontend",
+		"shared"
+	],
+	"scripts": {
+		"dev": "bun run --filter \"@racekiosk/*\" dev",
+		"dev:backend": "bun run --cwd backend dev",
+		"dev:frontend": "bun run --cwd frontend dev",
+		"build": "bun run --filter \"@racekiosk/*\" build",
+		"start": "bun run --cwd backend start",
+		"package": "bun run build && bun run --cwd backend package",
+		"test": "bun run --filter \"@racekiosk/*\" test",
+		"typecheck": "bun run --filter \"@racekiosk/*\" typecheck",
+		"lint": "biome check .",
+		"check": "biome check --write .",
+		"db:generate": "bun run --cwd backend db:generate",
+		"db:migrate": "bun run --cwd backend db:migrate",
+		"db:deploy": "bun run --cwd backend db:deploy",
+		"db:seed": "bun run --cwd backend db:seed",
+		"db:studio": "bun run --cwd backend db:studio"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.1.4",
+		"typescript": "5.9.2"
+	},
+	"packageManager": "bun@1.3.10"
+}

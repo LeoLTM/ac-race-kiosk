@@ -1,0 +1,54 @@
+name: Release
+
+# A v* tag runs the AC app and server workflows in parallel (tests included), then publishes all their
+# artifacts in one release. Only this workflow writes the release, so nothing races to create it.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+
+jobs:
+  ac-app:
+    uses: ./.github/workflows/ac-app.yml
+
+  server:
+    uses: ./.github/workflows/server.yml
+
+  release:
+    needs: [ac-app, server]
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      # AC app: zip with the racekiosk folder, to extract into <AC>/apps/python/.
+      # Linux executable in a tar.gz, which keeps its executable bit (artifacts drop it).
+      - name: Package release files
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir release
+          (cd artifacts/racekiosk && zip -qr "../../release/racekiosk-$TAG.zip" racekiosk)
+          chmod +x artifacts/racekiosk-server-Linux/racekiosk-server
+          tar -czf "release/racekiosk-server-$TAG-linux-x64.tar.gz" -C artifacts/racekiosk-server-Linux racekiosk-server
+          cp artifacts/racekiosk-server-Windows/racekiosk-server.exe "release/racekiosk-server-$TAG-windows-x64.exe"
+          ls -l release
+
+      - name: Create release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: release/*
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}

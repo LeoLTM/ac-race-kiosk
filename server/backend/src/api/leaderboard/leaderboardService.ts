@@ -1,8 +1,8 @@
 import { StatusCodes } from "http-status-codes";
-import type { Server as SocketIOServer } from "socket.io";
 import { isRigOnline } from "@/api/rig/rigPresence";
 import { rigRepository } from "@/api/rig/rigRepository";
 import { ServiceResponse } from "@/common/models/serviceResponse";
+import type { SocketIOServer } from "@/common/models/socketServer";
 import { clock } from "@/common/utils/clock";
 import { env } from "@/common/utils/envConfig";
 import type { Combo, CombosView, LeaderboardEntry, LeaderboardPeriod, LeaderboardView } from "./leaderboardModel";

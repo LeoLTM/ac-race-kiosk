@@ -1,4 +1,5 @@
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import type * as Api from "@racekiosk/shared";
 import { z } from "zod";
 
 extendZodWithOpenApi(z);
@@ -26,5 +27,5 @@ export const JoinQueueResponseSchema = z.object({
 		.int()
 		.nullable()
 		.openapi({ example: null, description: "Set when a rig was free right away" }),
-});
+}) satisfies z.ZodType<Api.JoinQueueResponse>;
 export type JoinQueueResponse = z.infer<typeof JoinQueueResponseSchema>;

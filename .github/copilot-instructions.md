@@ -37,28 +37,30 @@ Queue-based racing session manager for Assetto Corsa across multiple racing rigs
 
 ## Development Workflows
 
-### Backend Commands
+`server/` is one Bun workspace (`backend`, `frontend`, `shared`) with a single `bun.lock`, hoisted `node_modules` (`bunfig.toml`) and one Biome config. Run everything from `server/`:
+
 ```bash
-cd server/backend
-bun install                 # Install dependencies
-bun run start:dev          # Dev mode with --watch (tsx)
-bun run build              # TypeScript compile + tsup bundle
-bun run test               # Run Vitest tests
-bun run check              # Biome format + lint
-bun run prisma:generate    # Generate Prisma client after schema changes
-bun run prisma:migrate     # Create and apply database migrations
-bun run prisma:studio      # Open Prisma Studio GUI for database
+cd server
+bun install                 # All packages; postinstall generates the Prisma client
+bun run dev                 # Backend (bun --watch) + frontend (Vite, port 3000) together
+bun run dev:backend         # Only one of them (also dev:frontend)
+bun run build               # Backend: tsup -> backend/dist/index.js (CJS, runs on Node); frontend: vite build
+bun run start               # node backend/dist/index.js (also serves frontend/dist)
+bun run package             # build + yao-pkg executable for this OS -> backend/release/ (config: backend/pkg.config.cjs)
+bun run test                # Vitest in backend and frontend
+bun run typecheck           # tsc in every package
+bun run lint                # Biome lint + format check (CI); `bun run check` applies fixes
+bun run db:generate         # Regenerate Prisma client after schema changes
+bun run db:migrate          # Create and apply database migrations
+bun run db:deploy           # Apply existing migrations (the server also applies them on startup)
+bun run db:studio           # Prisma Studio GUI
+bun add <pkg> --cwd backend # Add a dependency to one package
+bunx --bun shadcn@latest add <component>   # From server/frontend: add shadcn components
 ```
 
-### Frontend Commands
-```bash
-cd server/frontend
-bun install                           # Install dependencies
-bun --bun run dev                     # Dev server on port 3000
-bun --bun run build                   # Production build
-pnpx shadcn@latest add <component>   # Add shadcn components
-bun --bun run check                   # Prettier + ESLint fix
-```
+The production backend must keep running on Node (not only Bun): it is packaged into standalone Linux/Windows executables with yao-pkg. Files the server reads at runtime (migrations, `frontend/dist`) are resolved via `backend/src/paths.ts`; the packaged server reads `.env` and keeps `racekiosk.db` next to the executable (`APP_DIR`), dev uses `backend/.env` and `prisma/dev.db`. Runtime files must be listed as assets in `backend/pkg.config.cjs`. Migrations are applied on startup by `src/common/utils/migrate.ts` (no Prisma CLI), which shares Prisma's `_prisma_migrations` table.
+
+CI: `ac-app.yml` and `server.yml` test and build on pushes/PRs and only upload artifacts. Pushing a `v*` tag runs `release.yml`, which calls both (`workflow_call`, in parallel) and is the only workflow that creates the GitHub release.
 
 ### AC App
 ```bash
@@ -79,14 +81,15 @@ python ac-app/tools/fake_rig.py --rig 1 --url http://localhost:8080 --key <KIOSK
    - Uses `@prisma/adapter-libsql` for Bun compatibility
    - Import client from `@/generated/prisma` (generated to `src/generated/prisma/`)
    - Use singleton `prisma` from `@/common/utils/prismaClient`
-   - Run `bun run prisma:migrate` after schema changes
+   - Run `bun run db:migrate` (from `server/`) after schema changes
 
 ### Frontend Patterns
 1. **Routing**: Add route by creating file in `src/routes/` - TanStack Router auto-generates types
 2. **Data Fetching**: Use TanStack Query with `queryClient` from root context (see `demo/tanstack-query.tsx`)
 3. **Styling**: Tailwind with `cn()` utility from `lib/utils.ts` for conditional classes
-4. **Components**: shadcn/ui components installed to `src/components/` via pnpx command
-5. **Path Aliases**: Use `@/` for imports - configured in `vite.config.ts`
+4. **Components**: shadcn/ui components installed to `src/components/` via `bunx --bun shadcn@latest add`
+5. **Path Aliases**: Use `@/` for imports - configured in `vite.config.ts` and `tsconfig.json`
+6. **API types**: Import from `@/lib/api`, which re-exports the types from `@racekiosk/shared`
 
 ### Backend Kiosk Logic
 1. **Single owner**: All queue/call/session/lap transitions live in `src/api/rig/rigService.ts` and run through `transition()` (serialized by a lock, broadcasts `queue-update` afterwards)
@@ -103,11 +106,15 @@ python ac-app/tools/fake_rig.py --rig 1 --url http://localhost:8080 --key <KIOSK
 ## Integration Points
 
 ### Backend ↔ Frontend
-- Backend exposes REST API with CORS configured via `env.CORS_ORIGIN`
+- The backend serves the REST API under `/api` and the built frontend (`frontend/dist`) on everything else, so page routes like `/admin` never collide with API paths
+- The frontend calls its own origin (`/api`, Socket.IO); in dev, Vite proxies both to the backend on port 8080
 - Frontend uses TanStack Query for API calls (see `/demo/tanstack-query` for pattern)
-- Shared ServiceResponse schema for type-safe responses
+- `server/shared/` (`@racekiosk/shared`) holds the response types (`Rig`, `DashboardResponse`, ...), the `ApiResponse` envelope and the typed Socket.IO events (`ServerToClientEvents`)
+- The backend's Zod view schemas end in `satisfies z.ZodType<Api.X>`, so changing a response without updating the shared type fails `bun run typecheck`
+- `shared` is consumed as TypeScript source (`exports` -> `src/index.ts`); the backend's tsup build bundles it
 
 ### Backend ↔ AC App
+- The AC app uses the unprefixed `/rigs/...` paths, which the backend keeps as an alias of `/api/rigs/...` for already deployed apps
 - **Heartbeat**: App POSTs `/rigs/:rigId/heartbeat` every second; the response is the rig status (`FREE` / `CALLING` / `RACING`, called player, session with `endsAt`, last session summary, `serverTime` for clock sync)
 - **Actions**: `/rigs/:rigId/session/start|end`, `/rigs/:rigId/call/skip`, always with the `queueEntryId` / `sessionId` they refer to (409 if stale)
 - **Laps**: `/rigs/:rigId/laps`, idempotent per `clientLapId`; buffered in `outbox.json` while the server is unreachable
@@ -133,12 +140,11 @@ python ac-app/tools/fake_rig.py --rig 1 --url http://localhost:8080 --key <KIOSK
 ## Testing
 
 - **Backend**: Vitest with `supertest` for API tests (`__tests__/` co-located with features); DB tests run against `prisma/test.db`, recreated from migrations in `src/test/globalSetup.ts`
-- **Frontend**: Vitest + Testing Library (run with `bun --bun run test`)
+- **Frontend**: Vitest + Testing Library
 - Both use `.test.ts` suffix and have `globals: true` in Vitest config
 - **AC app**: `unittest` in `ac-app/tests/` (runs on Python 3.3 and current Python; `fake_ac.py` only allows real AC API functions)
 
 ## Tools & Formatting
 
-- **Backend**: Biome for linting/formatting (120 line width, `biome.json`)
-- **Frontend**: ESLint (TanStack config) + Prettier
-- **Common**: TypeScript strict mode, path aliases via `@/`
+- **Biome** for linting and formatting everywhere (`server/biome.json`): backend and shared use tabs, double quotes, 120 columns; `frontend/**` overrides to 2 spaces, single quotes, no semicolons, 80 columns
+- **TypeScript**: strict, shared options in `server/tsconfig.base.json` (Bundler resolution); each package's `tsconfig.json` extends it; path aliases via `@/`

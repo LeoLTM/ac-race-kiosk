@@ -1,0 +1,2 @@
+# LF in the working tree on every OS, so Biome's formatter agrees with git checkouts on Windows (core.autocrlf)
+* text=auto eol=lf

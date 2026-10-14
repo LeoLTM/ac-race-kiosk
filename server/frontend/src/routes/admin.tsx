@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import {
   AlertCircle,
   ArrowDown,
@@ -10,25 +9,7 @@ import {
   ShieldCheck,
   Trash2,
 } from 'lucide-react'
-import type {AdminOverview, QueueEntry, RecentLap, Rig} from '@/lib/api';
-import { useAdminAction, useAdminOverview } from '@/hooks/useAdmin'
-import { useServerNow } from '@/hooks/useQueue'
-import {
-  
-  ApiError,
-  
-  
-  
-  RigState,
-  api,
-  kioskKey
-} from '@/lib/api'
-import {
-  formatCountdown,
-  formatEta,
-  formatLapTime,
-  formatTrack,
-} from '@/lib/format'
+import { useState } from 'react'
 import { ConnectionIndicator } from '@/components/ConnectionIndicator'
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -43,6 +24,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { useAdminAction, useAdminOverview } from '@/hooks/useAdmin'
+import { useServerNow } from '@/hooks/useQueue'
+import type { AdminOverview, QueueEntry, RecentLap, Rig } from '@/lib/api'
+import { ApiError, api, kioskKey, RigState } from '@/lib/api'
+import {
+  formatCountdown,
+  formatEta,
+  formatLapTime,
+  formatTrack,
+} from '@/lib/format'
 
 export const Route = createFileRoute('/admin')({
   component: AdminPage,
@@ -119,7 +110,11 @@ function AdminPage() {
               : 'Loading...'}
           </p>
         ) : (
-          <AdminContent data={overview.data} run={run} busy={action.isPending} />
+          <AdminContent
+            data={overview.data}
+            run={run}
+            busy={action.isPending}
+          />
         )}
       </div>
     </div>
@@ -239,7 +234,9 @@ function RigControls({
           <div className="flex gap-2">
             <Badge
               className={
-                rig.online ? 'bg-green-500 text-white' : 'bg-destructive text-white'
+                rig.online
+                  ? 'bg-green-500 text-white'
+                  : 'bg-destructive text-white'
               }
             >
               {rig.online ? 'online' : 'offline'}
@@ -414,7 +411,9 @@ function QueueTable({
                     variant="ghost"
                     title="Move to top"
                     disabled={busy || index === 0}
-                    onClick={() => run(() => api.admin.moveEntry(entry.id, 'top'))}
+                    onClick={() =>
+                      run(() => api.admin.moveEntry(entry.id, 'top'))
+                    }
                   >
                     <ChevronsUp />
                   </Button>
@@ -423,7 +422,9 @@ function QueueTable({
                     variant="ghost"
                     title="Move up"
                     disabled={busy || index === 0}
-                    onClick={() => run(() => api.admin.moveEntry(entry.id, 'up'))}
+                    onClick={() =>
+                      run(() => api.admin.moveEntry(entry.id, 'up'))
+                    }
                   >
                     <ArrowUp />
                   </Button>
@@ -432,7 +433,9 @@ function QueueTable({
                     variant="ghost"
                     title="Move down"
                     disabled={busy || index === queue.length - 1}
-                    onClick={() => run(() => api.admin.moveEntry(entry.id, 'down'))}
+                    onClick={() =>
+                      run(() => api.admin.moveEntry(entry.id, 'down'))
+                    }
                   >
                     <ArrowDown />
                   </Button>
@@ -447,7 +450,9 @@ function QueueTable({
                           ? `${rig.called.driverName} goes back to the queue`
                           : undefined
                       }
-                      onClick={() => run(() => api.admin.callEntry(entry.id, rig.id))}
+                      onClick={() =>
+                        run(() => api.admin.callEntry(entry.id, rig.id))
+                      }
                     >
                       Call to {rig.id}
                     </Button>
@@ -517,7 +522,9 @@ function LapsTable({
                 {lap.valid ? (
                   <Badge className="bg-green-500 text-white">valid</Badge>
                 ) : (
-                  <Badge variant="outline">{lap.invalidReason ?? 'invalid'}</Badge>
+                  <Badge variant="outline">
+                    {lap.invalidReason ?? 'invalid'}
+                  </Badge>
                 )}
               </TableCell>
               <TableCell>

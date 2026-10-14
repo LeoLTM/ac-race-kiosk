@@ -1,10 +1,12 @@
+import type {
+  ClientToServerEvents,
+  ServerToClientEvents,
+} from '@racekiosk/shared'
+import type { Socket } from 'socket.io-client'
 import { io } from 'socket.io-client'
-import type { Socket } from 'socket.io-client';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
-
-// Socket.IO client singleton with reconnection configuration
-export const socket: Socket = io(API_BASE_URL, {
+// Socket.IO client singleton with reconnection configuration; connects to the origin that served the page
+export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io({
   autoConnect: true,
   reconnection: true,
   reconnectionAttempts: Infinity,

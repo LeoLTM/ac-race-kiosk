@@ -1,15 +1,17 @@
 import { createServer } from "node:http";
-import { Server as SocketIOServer } from "socket.io";
+import { Server } from "socket.io";
+import { leaderboardService } from "@/api/leaderboard/leaderboardService";
+import { rigService } from "@/api/rig/rigService";
+import type { SocketIOServer } from "@/common/models/socketServer";
 import { env } from "@/common/utils/envConfig";
+import { migrateDatabase } from "@/common/utils/migrate";
 import { configureDatabase } from "@/common/utils/prismaClient";
 import { app, logger } from "@/server";
-import { rigService } from "@/api/rig/rigService";
-import { leaderboardService } from "@/api/leaderboard/leaderboardService";
 
 const httpServer = createServer(app);
 
 // Initialize Socket.io
-const io = new SocketIOServer(httpServer, {
+const io: SocketIOServer = new Server(httpServer, {
 	cors: {
 		origin: env.CORS_ORIGIN,
 		credentials: true,
@@ -35,8 +37,14 @@ if (!env.KIOSK_KEY) {
 
 let server: ReturnType<typeof httpServer.listen>;
 
-// Create the configured rigs, then start the 1s tick (session hard stops, no-shows, calling players)
-configureDatabase()
+// Bring the database schema up to date, create the configured rigs, then start the 1s tick
+// (session hard stops, no-shows, calling players)
+migrateDatabase(env.DATABASE_URL)
+	.then((applied) => {
+		logger.info(`Database: ${env.DATABASE_URL}`);
+		if (applied.length) logger.info(`Applied database migrations: ${applied.join(", ")}`);
+		return configureDatabase();
+	})
 	.then(() => rigService.init())
 	.then(() => {
 		rigService.startTicker();
@@ -46,7 +54,7 @@ configureDatabase()
 		});
 	})
 	.catch((error) => {
-		logger.error({ error }, "Failed to initialize rigs");
+		logger.error({ err: error }, "Failed to initialize the database");
 		process.exit(1);
 	});
 

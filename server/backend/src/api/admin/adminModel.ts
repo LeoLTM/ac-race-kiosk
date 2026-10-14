@@ -1,4 +1,5 @@
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import type * as Api from "@racekiosk/shared";
 import { z } from "zod";
 import { DashboardViewSchema, InvalidReasonSchema, RigIdParamsSchema } from "@/api/rig/rigModel";
 
@@ -16,12 +17,12 @@ export const RecentLapViewSchema = z.object({
 	trackConfig: z.string(),
 	car: z.string(),
 	completedAt: z.number().int(),
-});
+}) satisfies z.ZodType<Api.RecentLap>;
 export type RecentLapView = z.infer<typeof RecentLapViewSchema>;
 
 export const AdminOverviewSchema = DashboardViewSchema.extend({
 	recentLaps: z.array(RecentLapViewSchema),
-});
+}) satisfies z.ZodType<Api.AdminOverview>;
 export type AdminOverview = z.infer<typeof AdminOverviewSchema>;
 
 export const AdminRigSchema = z.object({ params: RigIdParamsSchema });
