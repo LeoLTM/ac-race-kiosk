@@ -21,4 +21,11 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  // In production the backend serves the built app; in dev, forward API and Socket.IO calls to it
+  server: {
+    proxy: {
+      '/api': 'http://localhost:8080',
+      '/socket.io': { target: 'http://localhost:8080', ws: true },
+    },
+  },
 })
