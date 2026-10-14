@@ -26,9 +26,11 @@ export function generateOpenAPIDocument(): OpenAPIDocument {
 			title: "Assetto Corsa Race Kiosk API",
 			description: "Queue-based racing session manager for Assetto Corsa across multiple racing rigs",
 		},
+		// Paths below are relative to the /api prefix the routers are mounted under
+		servers: [{ url: "/api" }],
 		externalDocs: {
 			description: "View the raw OpenAPI Specification in JSON format",
-			url: "/swagger.json",
+			url: "/api/docs/swagger.json",
 		},
 	});
 }

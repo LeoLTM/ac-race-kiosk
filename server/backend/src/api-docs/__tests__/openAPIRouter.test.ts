@@ -12,7 +12,7 @@ describe("OpenAPI Router", () => {
 			const expectedResponse = generateOpenAPIDocument();
 
 			// Act
-			const response = await request(app).get("/swagger.json");
+			const response = await request(app).get("/api/docs/swagger.json");
 
 			// Assert
 			expect(response.status).toBe(StatusCodes.OK);
@@ -22,7 +22,7 @@ describe("OpenAPI Router", () => {
 
 		it("should serve the Swagger UI", async () => {
 			// Act
-			const response = await request(app).get("/");
+			const response = await request(app).get("/api/docs/");
 
 			// Assert
 			expect(response.status).toBe(StatusCodes.OK);
