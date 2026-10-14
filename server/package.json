@@ -16,6 +16,7 @@
 		"dev:frontend": "bun run --cwd frontend dev",
 		"build": "bun run --filter \"@racekiosk/*\" build",
 		"start": "bun run --cwd backend start",
+		"package": "bun run build && bun run --cwd backend package",
 		"test": "bun run --filter \"@racekiosk/*\" test",
 		"typecheck": "bun run --filter \"@racekiosk/*\" typecheck",
 		"lint": "biome check .",
