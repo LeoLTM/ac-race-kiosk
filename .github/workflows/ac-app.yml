@@ -4,21 +4,19 @@ on:
   push:
     branches:
       - main
-    # Path filters are ignored for tag pushes, so every v* tag builds and releases
-    tags:
-      - 'v*'
     paths:
       - 'ac-app/**'
+      - '.github/workflows/ac-app.yml'
   pull_request:
     paths:
       - 'ac-app/**'
+      - '.github/workflows/ac-app.yml'
+  # release.yml runs this for v* tags and attaches the artifact to the release
+  workflow_call:
 
 jobs:
     build:
         runs-on: windows-latest
-
-        permissions:
-          contents: write
 
         steps:
         - name: Checkout repository
@@ -42,6 +40,7 @@ jobs:
             Remove-Item -Recurse -Force -ErrorAction SilentlyContinue dist/racekiosk/settings.ini, dist/racekiosk/outbox.json
             Get-ChildItem dist -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force
 
+        # When called by release.yml, github.ref is the release tag
         - name: Stamp app version
           shell: pwsh
           run: |
@@ -60,21 +59,7 @@ jobs:
 
         # Extract the downloaded zip into <AC>/apps/python/ (it contains the racekiosk folder)
         - name: Upload artifact
-          if: ${{ !startsWith(github.ref, 'refs/tags/') }}
           uses: actions/upload-artifact@v4
           with:
             name: racekiosk
             path: dist/
-
-        - name: Zip app for release
-          if: startsWith(github.ref, 'refs/tags/')
-          shell: pwsh
-          run: Compress-Archive -Path dist/racekiosk -DestinationPath "racekiosk-${{ github.ref_name }}.zip"
-
-        - name: Create release
-          if: startsWith(github.ref, 'refs/tags/')
-          uses: softprops/action-gh-release@v3
-          with:
-            files: racekiosk-${{ github.ref_name }}.zip
-            generate_release_notes: true
-            prerelease: ${{ contains(github.ref_name, '-') }}
