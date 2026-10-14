@@ -10,7 +10,7 @@ describe("User API Endpoints", () => {
 	describe("GET /users", () => {
 		it("should return a list of users", async () => {
 			// Act
-			const response = await request(app).get("/users");
+			const response = await request(app).get("/api/users");
 			const responseBody: ServiceResponse<User[]> = response.body;
 
 			// Assert
@@ -29,7 +29,7 @@ describe("User API Endpoints", () => {
 			const expectedUser = users.find((user) => user.id === testId) as User;
 
 			// Act
-			const response = await request(app).get(`/users/${testId}`);
+			const response = await request(app).get(`/api/users/${testId}`);
 			const responseBody: ServiceResponse<User> = response.body;
 
 			// Assert
@@ -45,7 +45,7 @@ describe("User API Endpoints", () => {
 			const testId = Number.MAX_SAFE_INTEGER;
 
 			// Act
-			const response = await request(app).get(`/users/${testId}`);
+			const response = await request(app).get(`/api/users/${testId}`);
 			const responseBody: ServiceResponse = response.body;
 
 			// Assert
@@ -58,7 +58,7 @@ describe("User API Endpoints", () => {
 		it("should return a bad request for invalid ID format", async () => {
 			// Act
 			const invalidInput = "abc";
-			const response = await request(app).get(`/users/${invalidInput}`);
+			const response = await request(app).get(`/api/users/${invalidInput}`);
 			const responseBody: ServiceResponse = response.body;
 
 			// Assert
