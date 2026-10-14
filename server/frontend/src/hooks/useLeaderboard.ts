@@ -1,7 +1,7 @@
-import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import type {Combo, LeaderboardPeriod} from '@/lib/api';
-import {   api } from '@/lib/api'
+import { useEffect } from 'react'
+import type { Combo, LeaderboardPeriod } from '@/lib/api'
+import { api } from '@/lib/api'
 import { socket } from '@/lib/socket'
 
 // Refetch leaderboards whenever the server reports a new valid lap

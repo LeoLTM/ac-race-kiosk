@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {  api } from '../lib/api'
+import { useEffect, useRef, useState } from 'react'
+import type { DashboardResponse } from '../lib/api'
+import { api } from '../lib/api'
 import { socket } from '../lib/socket'
-import type {DashboardResponse} from '../lib/api';
 
 // Rigs + shared queue. The server pushes every change as "queue-update"; polling is only a fallback.
 export function useDashboard() {

@@ -1,0 +1,13 @@
+{
+	"name": "@racekiosk/shared",
+	"version": "0.1.0",
+	"description": "API types shared by the race kiosk backend and frontend.",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"typecheck": "tsc"
+	}
+}

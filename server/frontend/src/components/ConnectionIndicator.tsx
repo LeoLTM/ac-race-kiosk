@@ -10,7 +10,13 @@ export function ConnectionIndicator() {
           isConnected ? 'bg-green-500' : 'bg-destructive'
         }`}
       />
-      <span className={isConnected ? 'text-green-600 dark:text-green-400' : 'text-destructive'}>
+      <span
+        className={
+          isConnected
+            ? 'text-green-600 dark:text-green-400'
+            : 'text-destructive'
+        }
+      >
         {isConnected ? 'Connected' : 'Disconnected'}
       </span>
     </div>

@@ -1,20 +1,10 @@
 {
+	"extends": "../tsconfig.base.json",
 	"compilerOptions": {
-		"target": "ESNext",
-		"module": "ESNext",
-		"baseUrl": "./src",
 		"paths": {
-			"@/*": ["*"]
+			"@/*": ["./src/*"]
 		},
-		"moduleResolution": "Node",
-		"outDir": "dist",
-		"importsNotUsedAsValues": "remove",
-		"strict": true,
-		"esModuleInterop": true,
-		"skipLibCheck": true,
-		"forceConsistentCasingInFileNames": true,
-		"types": ["vitest/globals"]
+		"types": ["node", "vitest/globals"]
 	},
-	"include": ["src/**/*"],
-	"exclude": ["node_modules"]
+	"include": ["src", "prisma", "prisma.config.ts", "tsup.config.ts", "vitest.config.mts"]
 }

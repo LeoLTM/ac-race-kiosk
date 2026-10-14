@@ -1,0 +1,4 @@
+[install]
+# Plain node_modules layout (no symlinked store): keeps Prisma's generated client, libsql's native
+# addons and the upcoming pkg build resolving packages the same way Node does
+linker = "hoisted"

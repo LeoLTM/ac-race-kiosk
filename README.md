@@ -24,6 +24,7 @@ Queue and lap-time system for sim racing cafés running Assetto Corsa on several
   - React + TanStack Router/Query.
   - Pages: registration kiosk, TV dashboard, leaderboard, staff admin page.
   - Live updates via Socket.IO.
+- **Shared** (`server/shared/`): API response types and Socket.IO events used by both; the backend's Zod schemas are type-checked against them.
 - **AC app** (`ac-app/racekiosk/`):
   - Python app that runs inside Assetto Corsa on every rig.
   - Shows the handover screens, counts the session down and reports every lap.
@@ -53,20 +54,23 @@ Rigs whose AC app isn't running (offline) or that are closed never get players c
 
 ## Getting started
 
-```bash
-# Backend
-cd server/backend
-cp .env.example .env        # set NUMBER_OF_RIGS, KIOSK_KEY, SESSION_DURATION_MIN, ...
-bun install
-bun run prisma:push         # apply migrations
-bun run prisma:seed         # optional sample drivers + laps
-bun run start:dev           # http://localhost:8080 (Swagger UI at /)
+The backend and frontend form one [Bun workspace](https://bun.com/docs/install/workspaces) in `server/`, so a single install and one set of scripts cover both:
 
-# Frontend
-cd server/frontend
-cp .env.example .env        # VITE_API_BASE_URL=http://<server>:8080
-bun install
-bun --bun run dev           # http://localhost:3000
+```text
+server/
+  backend/   @racekiosk/backend   Express 5 + Prisma/SQLite, Socket.IO
+  frontend/  @racekiosk/frontend  React + TanStack Router/Query (Vite)
+  shared/    @racekiosk/shared    API types used by both
+```
+
+```bash
+cd server
+bun install                         # all packages; also generates the Prisma client
+cp backend/.env.example backend/.env     # set NUMBER_OF_RIGS, KIOSK_KEY, SESSION_DURATION_MIN, ...
+cp frontend/.env.example frontend/.env   # VITE_API_BASE_URL=http://<server>:8080
+bun run db:deploy                   # apply migrations
+bun run db:seed                     # optional sample drivers + laps
+bun run dev                         # backend on http://localhost:8080 (Swagger UI at /) + frontend on http://localhost:3000
 ```
 
 Then install the AC app on every rig as described in [ac-app/README.md](ac-app/README.md). To try everything without Assetto Corsa, run a few simulated rigs:
@@ -75,10 +79,26 @@ Then install the AC app on every rig as described in [ac-app/README.md](ac-app/R
 python ac-app/tools/fake_rig.py --rig 1 --url http://localhost:8080 --key <KIOSK_KEY>
 ```
 
+### Scripts
+
+Run from `server/`:
+
+| Script | What it does |
+|--------|--------------|
+| `bun run dev` | Backend (watch mode) and frontend dev server together; `dev:backend` / `dev:frontend` for one |
+| `bun run build` | Backend bundle (`backend/dist/index.js`, runs on Node) and frontend (`frontend/dist/`) |
+| `bun run start` | Run the built backend with Node |
+| `bun run test` | Backend and frontend tests |
+| `bun run typecheck` | `tsc` in every package |
+| `bun run lint` / `bun run check` | Biome lint + format check / apply fixes |
+| `bun run db:migrate` | Create and apply a migration after changing `backend/prisma/schema.prisma` |
+| `bun run db:deploy` / `db:seed` / `db:studio` / `db:generate` | Apply migrations / sample data / Prisma Studio / regenerate the client |
+
+To add a dependency to one package: `bun add <pkg> --cwd backend` (or `frontend`).
+
 ## Tests
 
 ```bash
-cd server/backend && bun run test          # queue/session/lap logic against a temporary SQLite DB
-cd server/frontend && bun --bun run test   # page smoke tests
+cd server && bun run test                    # backend: queue/session/lap logic against a temporary SQLite DB; frontend: page smoke tests
 python -m unittest discover -s ac-app/tests
 ```

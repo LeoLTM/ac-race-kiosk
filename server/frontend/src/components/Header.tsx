@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
+import { Flag, Gauge, Home, Menu, Network, UserPlus, X } from 'lucide-react'
 import { useState } from 'react'
-import { Home, Menu, Network, X, Gauge, UserPlus, Flag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 
@@ -123,4 +123,3 @@ export default function Header() {
     </>
   )
 }
-

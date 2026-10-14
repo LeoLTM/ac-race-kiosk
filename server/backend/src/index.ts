@@ -1,15 +1,16 @@
 import { createServer } from "node:http";
-import { Server as SocketIOServer } from "socket.io";
+import { Server } from "socket.io";
+import { leaderboardService } from "@/api/leaderboard/leaderboardService";
+import { rigService } from "@/api/rig/rigService";
+import type { SocketIOServer } from "@/common/models/socketServer";
 import { env } from "@/common/utils/envConfig";
 import { configureDatabase } from "@/common/utils/prismaClient";
 import { app, logger } from "@/server";
-import { rigService } from "@/api/rig/rigService";
-import { leaderboardService } from "@/api/leaderboard/leaderboardService";
 
 const httpServer = createServer(app);
 
 // Initialize Socket.io
-const io = new SocketIOServer(httpServer, {
+const io: SocketIOServer = new Server(httpServer, {
 	cors: {
 		origin: env.CORS_ORIGIN,
 		credentials: true,
