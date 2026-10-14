@@ -1,4 +1,4 @@
-name: Check Race Kiosk Server
+name: Race Kiosk Server
 
 on:
   push:
@@ -11,6 +11,8 @@ on:
     paths:
       - 'server/**'
       - '.github/workflows/server.yml'
+  # release.yml runs this for v* tags and attaches the executables to the release
+  workflow_call:
 
 jobs:
   check:
