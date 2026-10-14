@@ -67,17 +67,25 @@ server/
 cd server
 bun install                         # all packages; also generates the Prisma client
 cp backend/.env.example backend/.env     # set NUMBER_OF_RIGS, KIOSK_KEY, SESSION_DURATION_MIN, ...
-cp frontend/.env.example frontend/.env   # VITE_API_BASE_URL=http://<server>:8080
-bun run db:deploy                   # apply migrations
+bun run dev                         # pages on http://localhost:3000, API on http://localhost:8080/api (Swagger UI at /api/docs)
 bun run db:seed                     # optional sample drivers + laps
-bun run dev                         # backend on http://localhost:8080 (Swagger UI at /) + frontend on http://localhost:3000
 ```
+
+The backend applies pending database migrations whenever it starts. In dev, Vite forwards `/api` and Socket.IO to the backend; in production the backend serves the built pages itself, so pages, API and rig apps all use one address (`http://<server>:8080`).
 
 Then install the AC app on every rig as described in [ac-app/README.md](ac-app/README.md). To try everything without Assetto Corsa, run a few simulated rigs:
 
 ```bash
 python ac-app/tools/fake_rig.py --rig 1 --url http://localhost:8080 --key <KIOSK_KEY>
 ```
+
+### Running at a venue
+
+`bun run package` builds a standalone executable for the current OS in `server/backend/release/` (Node, backend, pages and migrations inside, no install needed). CI builds one for Linux and one for Windows on every run (artifacts `racekiosk-server-Linux` / `racekiosk-server-Windows`).
+
+1. Put the executable in its own folder, next to a `.env` based on [backend/.env.example](server/backend/.env.example), e.g. with `DATABASE_URL="file:./racekiosk.db"`.
+2. Start it from that folder. The database is created and migrated on the first start.
+3. Open `http://<server>:8080` on the kiosk tablet, TV and staff device, and point the rig apps' `backend_url` at the same address.
 
 ### Scripts
 
@@ -87,12 +95,13 @@ Run from `server/`:
 |--------|--------------|
 | `bun run dev` | Backend (watch mode) and frontend dev server together; `dev:backend` / `dev:frontend` for one |
 | `bun run build` | Backend bundle (`backend/dist/index.js`, runs on Node) and frontend (`frontend/dist/`) |
-| `bun run start` | Run the built backend with Node |
+| `bun run start` | Run the built backend with Node; it also serves `frontend/dist/` |
+| `bun run package` | Build, then package everything into one executable for this OS (`backend/release/`) |
 | `bun run test` | Backend and frontend tests |
 | `bun run typecheck` | `tsc` in every package |
 | `bun run lint` / `bun run check` | Biome lint + format check / apply fixes |
 | `bun run db:migrate` | Create and apply a migration after changing `backend/prisma/schema.prisma` |
-| `bun run db:deploy` / `db:seed` / `db:studio` / `db:generate` | Apply migrations / sample data / Prisma Studio / regenerate the client |
+| `bun run db:deploy` / `db:seed` / `db:studio` / `db:generate` | Apply migrations without starting the server / sample data / Prisma Studio / regenerate the client |
 
 To add a dependency to one package: `bun add <pkg> --cwd backend` (or `frontend`).
 
