@@ -12,8 +12,8 @@ import type {
 // API types live in the shared workspace package; re-exported so pages keep importing from '@/lib/api'
 export * from '@racekiosk/shared'
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+// The backend serves this app, so the API is on the same origin (proxied to the backend by Vite in dev)
+const API_BASE_URL = '/api'
 
 export class ApiError extends Error {
   constructor(
