@@ -81,11 +81,13 @@ python ac-app/tools/fake_rig.py --rig 1 --url http://localhost:8080 --key <KIOSK
 
 ### Running at a venue
 
-`bun run package` builds a standalone executable for the current OS in `server/backend/release/` (Node, backend, pages and migrations inside, no install needed). CI builds one for Linux and one for Windows on every run (artifacts `racekiosk-server-Linux` / `racekiosk-server-Windows`).
+The server ships as one executable per OS (Node, backend, pages and migrations inside; nothing to install). Download it from the [GitHub Releases](https://github.com/LeoLTM/acc-race-kiosk/releases) page (`racekiosk-server-<version>-windows-x64.exe` or `-linux-x64.tar.gz`), or build one for the current OS with `bun run package` (output in `server/backend/release/`).
 
-1. Put the executable in its own folder, next to a `.env` based on [backend/.env.example](server/backend/.env.example), e.g. with `DATABASE_URL="file:./racekiosk.db"`.
-2. Start it from that folder. The database is created and migrated on the first start.
+1. Put the executable in its own folder, with a `.env` next to it that sets at least `NUMBER_OF_RIGS` and `KIOSK_KEY` (all settings: [backend/.env.example](server/backend/.env.example)).
+2. Start it. It reads the `.env` and keeps its database (`racekiosk.db`) next to the executable, whatever folder it is started from, and creates and migrates the database on the first start.
 3. Open `http://<server>:8080` on the kiosk tablet, TV and staff device, and point the rig apps' `backend_url` at the same address.
+
+Pushing a `v*` tag runs `.github/workflows/release.yml`: it tests and builds the AC app and the server executables in parallel, then publishes all of them in one GitHub release.
 
 ### Scripts
 

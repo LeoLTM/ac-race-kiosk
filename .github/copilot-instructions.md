@@ -58,7 +58,9 @@ bun add <pkg> --cwd backend # Add a dependency to one package
 bunx --bun shadcn@latest add <component>   # From server/frontend: add shadcn components
 ```
 
-The production backend must keep running on Node (not only Bun): it is packaged into standalone Linux/Windows executables with yao-pkg. Files the server reads at runtime (migrations, `frontend/dist`) are resolved via `backend/src/paths.ts` and must be listed as assets in `backend/pkg.config.cjs`. Migrations are applied on startup by `src/common/utils/migrate.ts` (no Prisma CLI), which shares Prisma's `_prisma_migrations` table.
+The production backend must keep running on Node (not only Bun): it is packaged into standalone Linux/Windows executables with yao-pkg. Files the server reads at runtime (migrations, `frontend/dist`) are resolved via `backend/src/paths.ts`; the packaged server reads `.env` and keeps `racekiosk.db` next to the executable (`APP_DIR`), dev uses `backend/.env` and `prisma/dev.db`. Runtime files must be listed as assets in `backend/pkg.config.cjs`. Migrations are applied on startup by `src/common/utils/migrate.ts` (no Prisma CLI), which shares Prisma's `_prisma_migrations` table.
+
+CI: `ac-app.yml` and `server.yml` test and build on pushes/PRs and only upload artifacts. Pushing a `v*` tag runs `release.yml`, which calls both (`workflow_call`, in parallel) and is the only workflow that creates the GitHub release.
 
 ### AC App
 ```bash
