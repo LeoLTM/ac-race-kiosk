@@ -5,10 +5,12 @@ import pino from "pino";
 import pinoHttp from "pino-http";
 
 import { env } from "@/common/utils/envConfig";
+import { isPackaged } from "@/paths";
 
 const logger = pino({
 	level: env.isProduction ? "info" : "debug",
-	transport: env.isProduction ? undefined : { target: "pino-pretty" },
+	// pino-pretty is a dev dependency, so the packaged executable never has it
+	transport: env.isProduction || isPackaged ? undefined : { target: "pino-pretty" },
 });
 
 const getLogLevel = (status: number) => {
