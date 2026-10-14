@@ -41,6 +41,7 @@ let server: ReturnType<typeof httpServer.listen>;
 // (session hard stops, no-shows, calling players)
 migrateDatabase(env.DATABASE_URL)
 	.then((applied) => {
+		logger.info(`Database: ${env.DATABASE_URL}`);
 		if (applied.length) logger.info(`Applied database migrations: ${applied.join(", ")}`);
 		return configureDatabase();
 	})
