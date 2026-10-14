@@ -45,19 +45,20 @@ bun install                 # All packages; postinstall generates the Prisma cli
 bun run dev                 # Backend (bun --watch) + frontend (Vite, port 3000) together
 bun run dev:backend         # Only one of them (also dev:frontend)
 bun run build               # Backend: tsup -> backend/dist/index.js (CJS, runs on Node); frontend: vite build
-bun run start               # node backend/dist/index.js
+bun run start               # node backend/dist/index.js (also serves frontend/dist)
+bun run package             # build + yao-pkg executable for this OS -> backend/release/ (config: backend/pkg.config.cjs)
 bun run test                # Vitest in backend and frontend
 bun run typecheck           # tsc in every package
 bun run lint                # Biome lint + format check (CI); `bun run check` applies fixes
 bun run db:generate         # Regenerate Prisma client after schema changes
 bun run db:migrate          # Create and apply database migrations
-bun run db:deploy           # Apply existing migrations
+bun run db:deploy           # Apply existing migrations (the server also applies them on startup)
 bun run db:studio           # Prisma Studio GUI
 bun add <pkg> --cwd backend # Add a dependency to one package
 bunx --bun shadcn@latest add <component>   # From server/frontend: add shadcn components
 ```
 
-The production backend must keep running on Node (not only Bun): it will be packaged into standalone Linux/Windows binaries with yao-pkg.
+The production backend must keep running on Node (not only Bun): it is packaged into standalone Linux/Windows executables with yao-pkg. Files the server reads at runtime (migrations, `frontend/dist`) are resolved via `backend/src/paths.ts` and must be listed as assets in `backend/pkg.config.cjs`. Migrations are applied on startup by `src/common/utils/migrate.ts` (no Prisma CLI), which shares Prisma's `_prisma_migrations` table.
 
 ### AC App
 ```bash
@@ -103,13 +104,15 @@ python ac-app/tools/fake_rig.py --rig 1 --url http://localhost:8080 --key <KIOSK
 ## Integration Points
 
 ### Backend ↔ Frontend
-- Backend exposes REST API with CORS configured via `env.CORS_ORIGIN`
+- The backend serves the REST API under `/api` and the built frontend (`frontend/dist`) on everything else, so page routes like `/admin` never collide with API paths
+- The frontend calls its own origin (`/api`, Socket.IO); in dev, Vite proxies both to the backend on port 8080
 - Frontend uses TanStack Query for API calls (see `/demo/tanstack-query` for pattern)
 - `server/shared/` (`@racekiosk/shared`) holds the response types (`Rig`, `DashboardResponse`, ...), the `ApiResponse` envelope and the typed Socket.IO events (`ServerToClientEvents`)
 - The backend's Zod view schemas end in `satisfies z.ZodType<Api.X>`, so changing a response without updating the shared type fails `bun run typecheck`
 - `shared` is consumed as TypeScript source (`exports` -> `src/index.ts`); the backend's tsup build bundles it
 
 ### Backend ↔ AC App
+- The AC app uses the unprefixed `/rigs/...` paths, which the backend keeps as an alias of `/api/rigs/...` for already deployed apps
 - **Heartbeat**: App POSTs `/rigs/:rigId/heartbeat` every second; the response is the rig status (`FREE` / `CALLING` / `RACING`, called player, session with `endsAt`, last session summary, `serverTime` for clock sync)
 - **Actions**: `/rigs/:rigId/session/start|end`, `/rigs/:rigId/call/skip`, always with the `queueEntryId` / `sessionId` they refer to (409 if stale)
 - **Laps**: `/rigs/:rigId/laps`, idempotent per `clientLapId`; buffered in `outbox.json` while the server is unreachable
