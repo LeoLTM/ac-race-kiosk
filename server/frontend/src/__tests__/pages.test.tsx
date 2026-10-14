@@ -145,8 +145,8 @@ function mockApi() {
   vi.stubGlobal(
     'fetch',
     vi.fn((input: string, init?: RequestInit) => {
-      const url = new URL(input)
-      if (url.pathname === '/queue' && init?.method === 'POST') {
+      const url = new URL(input, 'http://kiosk.local')
+      if (url.pathname === '/api/queue' && init?.method === 'POST') {
         return respond({
           queueEntryId: 'q9',
           driverName: 'Dave',
@@ -155,14 +155,14 @@ function mockApi() {
           calledRigId: null,
         })
       }
-      if (url.pathname === '/queue') return respond(dashboard)
-      if (url.pathname === '/leaderboard') return respond(leaderboard)
-      if (url.pathname === '/leaderboard/combos')
+      if (url.pathname === '/api/queue') return respond(dashboard)
+      if (url.pathname === '/api/leaderboard') return respond(leaderboard)
+      if (url.pathname === '/api/leaderboard/combos')
         return respond({
           combos: [{ ...combo, lapCount: 2, lastLapAt: now }],
           current: combo,
         })
-      if (url.pathname === '/admin/overview') return respond(overview)
+      if (url.pathname === '/api/admin/overview') return respond(overview)
       return respond(null, 404)
     }),
   )
