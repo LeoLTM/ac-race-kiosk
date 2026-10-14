@@ -35,7 +35,7 @@ A rig is **online** while its AC app keeps sending heartbeats. It goes offline a
 
 ## Endpoints
 
-All timestamps are epoch milliseconds. Responses use the usual `ServiceResponse` envelope (`success`, `message`, `responseObject`, `statusCode`). Swagger UI is served at `/`.
+All paths below are under `/api` (e.g. `POST /api/queue`); everything else on the server is the frontend. All timestamps are epoch milliseconds. Responses use the usual `ServiceResponse` envelope (`success`, `message`, `responseObject`, `statusCode`). Swagger UI is served at `/api/docs`.
 
 ### Public (kiosk tablet, TV dashboard)
 
@@ -47,6 +47,8 @@ All timestamps are epoch milliseconds. Responses use the usual `ServiceResponse`
 | GET | `/leaderboard/combos` | Track/car combos that have laps, plus the current one |
 
 ### Rig app (`X-Kiosk-Key` header)
+
+The AC app calls these without the `/api` prefix (`/rigs/...`), which the server keeps accepting, so rig apps released before the prefix keep working.
 
 | Method | Path | |
 | --- | --- | --- |
