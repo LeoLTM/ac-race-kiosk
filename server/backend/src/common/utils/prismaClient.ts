@@ -1,10 +1,9 @@
 import { PrismaLibSql } from "@prisma/adapter-libsql";
+import { env } from "@/common/utils/envConfig";
 import { PrismaClient } from "@/generated/prisma";
 
 // Create adapter with database URL from environment
-const adapter = new PrismaLibSql({
-	url: process.env.DATABASE_URL ?? "file:./prisma/dev.db",
-});
+const adapter = new PrismaLibSql({ url: env.DATABASE_URL });
 
 // Prevent multiple instances of Prisma Client in development due to hot-reloading
 const globalForPrisma = globalThis as unknown as {
